@@ -39,14 +39,38 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const projectId = projects[0].id;
           const userId = githubHandle || email;
 
-          await sql`
-            INSERT INTO members (project_id, user_id, email, github_handle)
-            VALUES (${projectId}, ${userId}, ${email}, ${githubHandle})
-            ON CONFLICT (project_id, user_id)
-            DO UPDATE SET
-              email = EXCLUDED.email,
-              github_handle = EXCLUDED.github_handle
+          // Check for existing member by github_handle or email to prevent
+          // duplicate accounts when OAuth returns different identifiers
+          // (e.g. mobile login may omit profile.login)
+          const existing = await sql`
+            SELECT id, user_id FROM members
+            WHERE project_id = ${projectId}
+              AND (
+                (${githubHandle} != '' AND github_handle = ${githubHandle})
+                OR (${email} != '' AND email = ${email})
+              )
+            LIMIT 1
           `;
+
+          if (existing.length > 0) {
+            // Update existing member — also update user_id to the canonical form
+            await sql`
+              UPDATE members
+              SET email = COALESCE(NULLIF(${email}, ''), email),
+                  github_handle = COALESCE(NULLIF(${githubHandle}, ''), github_handle),
+                  user_id = COALESCE(NULLIF(${githubHandle}, ''), user_id)
+              WHERE id = ${existing[0].id}
+            `;
+          } else {
+            await sql`
+              INSERT INTO members (project_id, user_id, email, github_handle)
+              VALUES (${projectId}, ${userId}, ${email}, ${githubHandle})
+              ON CONFLICT (project_id, user_id)
+              DO UPDATE SET
+                email = EXCLUDED.email,
+                github_handle = EXCLUDED.github_handle
+            `;
+          }
         }
       } catch (e) {
         console.error("signIn callback error:", e);
