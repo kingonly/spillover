@@ -1,8 +1,10 @@
 import { sql } from "@/lib/db";
-import { Header } from "./components/header";
+import { auth, signOut } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { StatsRow } from "./components/stats-row";
 import { TeamGrid } from "./components/team-grid";
 import { TaskLog } from "./components/task-log";
+import { UserMenu } from "./components/user-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +31,12 @@ async function getData() {
 }
 
 export default async function Home() {
+  const session = await auth();
+  if (!session?.user) redirect("/sign-in");
+
   const { project, members, tasks, usageLogs } = await getData();
+
+  const user = session.user as any;
 
   if (!project) {
     return (
@@ -65,9 +72,34 @@ export default async function Home() {
         )
       : 0;
 
+  async function handleSignOut() {
+    "use server";
+    await signOut({ redirectTo: "/sign-in" });
+  }
+
   return (
     <main className="max-w-6xl mx-auto px-8 py-16">
-      <Header projectName={project.name} />
+      <div className="flex items-start justify-between mb-16">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="text-3xl font-bold tracking-tight text-shimmer">
+              spillover
+            </div>
+            <div className="h-5 w-px bg-[var(--color-border)]" />
+            <span className="text-sm text-[var(--color-text-secondary)]">
+              {project.name}
+            </span>
+          </div>
+          <p className="text-xs text-[var(--color-text-muted)]">
+            pool your team&apos;s claude code capacity
+          </p>
+        </div>
+        <UserMenu
+          name={user.githubHandle || user.name || user.email || ""}
+          image={user.image}
+          signOutAction={handleSignOut}
+        />
+      </div>
 
       <StatsRow
         totalMembers={members.length}

@@ -1,6 +1,8 @@
-# 💧 Spillover
+# spillover
 
 Pool your team's Claude Code capacity. No tokens left behind.
+
+![Dashboard](assets/dashboard.png)
 
 ## What it does
 
@@ -60,6 +62,7 @@ supabase/         # Database migrations
 ## Stack
 
 - **CLI**: Node.js + TypeScript + Commander
-- **Backend**: Supabase (Postgres, Realtime, Auth)
-- **Dashboard**: Next.js + Supabase
+- **Database**: Neon (serverless Postgres)
+- **Dashboard**: Next.js + Tailwind CSS
+- **Auth**: NextAuth.js with GitHub OAuth
 - **Task execution**: Claude Code headless (`claude -p`)
