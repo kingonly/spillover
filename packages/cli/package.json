@@ -1,0 +1,26 @@
+{
+  "name": "@spillover/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "spillover": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@spillover/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.49.0",
+    "commander": "^13.1.0",
+    "chalk": "^5.4.1",
+    "ora": "^8.2.0",
+    "conf": "^13.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}

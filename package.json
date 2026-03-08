@@ -1,0 +1,11 @@
+{
+  "name": "spillover",
+  "private": true,
+  "scripts": {
+    "cli": "pnpm --filter @spillover/cli",
+    "web": "pnpm --filter @spillover/web",
+    "dev": "pnpm --filter @spillover/web dev",
+    "build": "pnpm -r build"
+  },
+  "packageManager": "pnpm@10.6.2"
+}
