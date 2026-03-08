@@ -1,17 +1,26 @@
 {
-  "name": "@spillover/cli",
+  "name": "spillover",
   "version": "0.1.0",
+  "description": "Pool your team's Claude Code capacity. No tokens left behind.",
   "type": "module",
   "bin": {
     "spillover": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
+    "build": "tsup src/index.ts --format esm --dts --no-splitting",
     "dev": "tsup src/index.ts --format esm --watch",
     "typecheck": "tsc --noEmit"
   },
+  "keywords": ["claude", "claude-code", "ai", "team", "tokens", "capacity", "pool"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kingonly/spillover"
+  },
   "dependencies": {
-    "@spillover/shared": "workspace:*",
     "postgres": "^3.4.8",
     "commander": "^13.1.0",
     "chalk": "^5.4.1",
@@ -19,6 +28,7 @@
     "conf": "^13.1.0"
   },
   "devDependencies": {
+    "@spillover/shared": "workspace:*",
     "tsup": "^8.4.0",
     "typescript": "^5.7.0",
     "@types/node": "^22.0.0"
