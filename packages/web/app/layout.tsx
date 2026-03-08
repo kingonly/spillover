@@ -8,7 +8,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Spillover — Team Claude Code Capacity",
+  title: "spillover",
   description: "Pool your team's Claude Code capacity. No tokens left behind.",
 };
 
@@ -18,8 +18,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${geistMono.variable} font-mono antialiased bg-gray-950 text-gray-100 min-h-screen`}>
+    <html lang="en">
+      <body className={`${geistMono.variable} antialiased min-h-screen`}>
         {children}
       </body>
     </html>

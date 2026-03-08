@@ -16,62 +16,97 @@ interface TeamGridProps {
   usageMap: Record<string, UsageLog>;
 }
 
-function getStatusColor(percent: number) {
-  if (percent < 30) return "bg-emerald-500";
-  if (percent < 50) return "bg-emerald-400";
-  if (percent < 70) return "bg-yellow-400";
-  if (percent < 90) return "bg-orange-400";
-  return "bg-red-500";
+function getBarColor(percent: number) {
+  if (percent < 30) return "var(--color-green)";
+  if (percent < 60) return "var(--color-accent)";
+  if (percent < 80) return "var(--color-yellow)";
+  if (percent < 90) return "var(--color-orange)";
+  return "var(--color-red)";
 }
 
-function getStatusLabel(percent: number) {
-  if (percent < 30) return "overflowing";
-  if (percent < 50) return "plenty to give";
-  if (percent < 70) return "comfortable";
-  if (percent < 90) return "running warm";
-  return "near limit";
+function getBarGlow(percent: number) {
+  if (percent < 30) return "rgba(52, 211, 153, 0.15)";
+  if (percent < 60) return "rgba(34, 211, 238, 0.15)";
+  if (percent < 80) return "rgba(251, 191, 36, 0.15)";
+  if (percent < 90) return "rgba(249, 115, 22, 0.15)";
+  return "rgba(239, 68, 68, 0.15)";
+}
+
+function getStatusTag(percent: number) {
+  if (percent < 30) return { text: "idle", color: "var(--color-green)" };
+  if (percent < 60) return { text: "active", color: "var(--color-accent)" };
+  if (percent < 80) return { text: "busy", color: "var(--color-yellow)" };
+  if (percent < 90) return { text: "hot", color: "var(--color-orange)" };
+  return { text: "limit", color: "var(--color-red)" };
 }
 
 export function TeamGrid({ members, usageMap }: TeamGridProps) {
   if (members.length === 0) {
     return (
-      <p className="text-gray-500 text-sm">
-        No team members yet. Share your project ID with teammates.
+      <p className="text-[var(--color-text-muted)] text-sm">
+        No team members yet.
       </p>
     );
   }
 
+  // Sort: highest usage first
+  const sorted = [...members].sort((a, b) => {
+    const aP = Number(usageMap[a.user_id]?.usage_percent || 0);
+    const bP = Number(usageMap[b.user_id]?.usage_percent || 0);
+    return bP - aP;
+  });
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {members.map((member) => {
+    <div className="space-y-2">
+      {sorted.map((member) => {
         const usage = usageMap[member.user_id];
         const percent = Number(usage?.usage_percent || 0);
         const name =
           member.github_handle || member.email || member.user_id.slice(0, 8);
+        const color = getBarColor(percent);
+        const glow = getBarGlow(percent);
+        const status = getStatusTag(percent);
 
         return (
           <div
             key={member.user_id}
-            className="bg-gray-900 border border-gray-800 rounded-xl p-4"
+            className="group flex items-center gap-5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-5 py-4 hover:border-[var(--color-border-hover)] transition-colors"
           >
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-medium text-white">@{name}</span>
-              <span className="text-sm text-gray-400">
-                {getStatusLabel(percent)}
+            {/* Name */}
+            <div className="w-28 shrink-0">
+              <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                {name}
               </span>
             </div>
 
-            {/* Usage bar */}
-            <div className="w-full bg-gray-800 rounded-full h-3 mb-2">
-              <div
-                className={`h-3 rounded-full transition-all ${getStatusColor(percent)}`}
-                style={{ width: `${Math.max(percent, 2)}%` }}
-              />
+            {/* Bar */}
+            <div className="flex-1 relative">
+              <div className="h-2 bg-[var(--color-border)] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full animate-fill"
+                  style={{
+                    width: `${Math.max(percent, 1)}%`,
+                    backgroundColor: color,
+                    boxShadow: `0 0 12px ${glow}`,
+                  }}
+                />
+              </div>
             </div>
 
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">{percent}% used</span>
-              <span className="text-gray-500">{100 - percent}% available</span>
+            {/* Percent */}
+            <div className="w-12 text-right tabular-nums text-sm" style={{ color }}>
+              {percent}%
+            </div>
+
+            {/* Status tag */}
+            <div
+              className="w-14 text-center text-[10px] uppercase tracking-wider font-medium py-0.5 rounded-full"
+              style={{
+                color: status.color,
+                backgroundColor: `color-mix(in srgb, ${status.color} 10%, transparent)`,
+              }}
+            >
+              {status.text}
             </div>
           </div>
         );

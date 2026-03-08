@@ -22,21 +22,27 @@ interface TaskLogProps {
   members: Member[];
 }
 
-const statusConfig: Record<string, { icon: string; color: string; label: string }> = {
-  queued: { icon: "⏳", color: "text-gray-400", label: "queued" },
-  running: { icon: "🔄", color: "text-cyan-400", label: "running" },
-  done: { icon: "✅", color: "text-emerald-400", label: "done" },
-  failed: { icon: "❌", color: "text-red-400", label: "failed" },
+const statusConfig: Record<string, { dot: string; color: string }> = {
+  queued: { dot: "bg-[var(--color-text-muted)]", color: "var(--color-text-muted)" },
+  running: { dot: "bg-[var(--color-accent)] pulse", color: "var(--color-accent)" },
+  done: { dot: "bg-[var(--color-green)]", color: "var(--color-green)" },
+  failed: { dot: "bg-[var(--color-red)]", color: "var(--color-red)" },
 };
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor(
     (Date.now() - new Date(dateStr).getTime()) / 1000
   );
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
+  if (seconds < 60) return "now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
 export function TaskLog({ tasks, members }: TaskLogProps) {
@@ -48,15 +54,25 @@ export function TaskLog({ tasks, members }: TaskLogProps) {
 
   if (tasks.length === 0) {
     return (
-      <p className="text-gray-500 text-sm">
-        No tasks yet. Run <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs">spillover run &quot;your prompt&quot;</code>
+      <p className="text-[var(--color-text-muted)] text-sm">
+        No tasks yet.
       </p>
     );
   }
 
   return (
-    <div className="space-y-2">
-      {tasks.map((task) => {
+    <div className="border border-[var(--color-border)] rounded-lg overflow-hidden">
+      {/* Header */}
+      <div className="grid grid-cols-[1fr_100px_80px_60px_50px] gap-4 px-5 py-2.5 bg-[var(--color-surface)] border-b border-[var(--color-border)] text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+        <div>task</div>
+        <div>route</div>
+        <div className="text-right">tokens</div>
+        <div className="text-right">time</div>
+        <div className="text-center">status</div>
+      </div>
+
+      {/* Rows */}
+      {tasks.map((task, i) => {
         const status = statusConfig[task.status] || statusConfig.queued;
         const wasSpilled =
           task.assigned_to && task.assigned_to !== task.submitted_by;
@@ -64,44 +80,48 @@ export function TaskLog({ tasks, members }: TaskLogProps) {
         return (
           <div
             key={task.id}
-            className="bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 flex items-center gap-4"
+            className={`grid grid-cols-[1fr_100px_80px_60px_50px] gap-4 px-5 py-3 items-center hover:bg-[var(--color-surface-hover)] transition-colors ${
+              i < tasks.length - 1 ? "border-b border-[var(--color-border)]" : ""
+            }`}
           >
-            {/* Status icon */}
-            <span className="text-lg flex-shrink-0">{status.icon}</span>
-
-            {/* Prompt */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-white truncate">
+            {/* Task prompt */}
+            <div className="min-w-0">
+              <p className="text-sm text-[var(--color-text-primary)] truncate">
                 {task.prompt}
               </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-gray-500">
-                  by @{getName(task.submitted_by)}
+              <span className="text-[11px] text-[var(--color-text-muted)]">
+                {getName(task.submitted_by)}
+              </span>
+            </div>
+
+            {/* Route */}
+            <div className="text-[11px]">
+              {wasSpilled ? (
+                <span className="text-[var(--color-accent)]">
+                  → {getName(task.assigned_to!)}
                 </span>
-                {wasSpilled && (
-                  <span className="text-xs text-cyan-400">
-                    💧 spilled to @{getName(task.assigned_to!)}
-                  </span>
-                )}
-                {task.result_branch && (
-                  <span className="text-xs text-gray-600">
-                    → {task.result_branch}
-                  </span>
-                )}
-              </div>
+              ) : (
+                <span className="text-[var(--color-text-muted)]">local</span>
+              )}
             </div>
 
             {/* Tokens */}
-            {task.tokens_used && (
-              <span className="text-xs text-gray-500 flex-shrink-0">
-                {Number(task.tokens_used).toLocaleString()} tokens
-              </span>
-            )}
+            <div className="text-right text-[11px] tabular-nums text-[var(--color-text-secondary)]">
+              {task.tokens_used ? formatTokens(Number(task.tokens_used)) : "—"}
+            </div>
 
             {/* Time */}
-            <span className="text-xs text-gray-600 flex-shrink-0 w-16 text-right">
+            <div className="text-right text-[11px] tabular-nums text-[var(--color-text-muted)]">
               {timeAgo(task.created_at)}
-            </span>
+            </div>
+
+            {/* Status dot */}
+            <div className="flex justify-center">
+              <div
+                className={`w-2 h-2 rounded-full ${status.dot}`}
+                title={task.status}
+              />
+            </div>
           </div>
         );
       })}

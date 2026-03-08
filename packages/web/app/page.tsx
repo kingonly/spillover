@@ -1,7 +1,8 @@
 import { sql } from "@/lib/db";
+import { Header } from "./components/header";
+import { StatsRow } from "./components/stats-row";
 import { TeamGrid } from "./components/team-grid";
 import { TaskLog } from "./components/task-log";
-import { StatsBar } from "./components/stats-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -34,64 +35,64 @@ export default async function Home() {
     return (
       <main className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-4xl mb-4">💧 spillover</h1>
-          <p className="text-gray-400">
+          <div className="text-5xl mb-6 text-shimmer font-bold tracking-tight">spillover</div>
+          <p className="text-[var(--color-text-secondary)] text-sm">
             No projects yet. Run{" "}
-            <code className="bg-gray-800 px-2 py-1 rounded">spillover init</code>{" "}
-            to get started.
+            <code className="bg-[var(--color-surface)] px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
+              spillover init
+            </code>
           </p>
         </div>
       </main>
     );
   }
 
-  const usageMap = Object.fromEntries(usageLogs.map((u) => [u.user_id, u]));
+  const usageMap = Object.fromEntries(usageLogs.map((u: any) => [u.user_id, u]));
 
   const spilledTasks = tasks.filter(
-    (t) => t.assigned_to && t.assigned_to !== t.submitted_by
+    (t: any) => t.assigned_to && t.assigned_to !== t.submitted_by
   ).length;
   const totalTokensSaved = tasks
     .filter(
-      (t) => t.assigned_to && t.assigned_to !== t.submitted_by && t.tokens_used
+      (t: any) => t.assigned_to && t.assigned_to !== t.submitted_by && t.tokens_used
     )
-    .reduce((sum, t) => sum + Number(t.tokens_used || 0), 0);
+    .reduce((sum: number, t: any) => sum + Number(t.tokens_used || 0), 0);
   const avgUsage =
     usageLogs.length > 0
       ? Math.round(
-          usageLogs.reduce((sum, u) => sum + Number(u.usage_percent), 0) /
+          usageLogs.reduce((sum: number, u: any) => sum + Number(u.usage_percent), 0) /
             usageLogs.length
         )
       : 0;
 
   return (
-    <main className="max-w-5xl mx-auto px-6 py-12">
-      <div className="mb-12">
-        <h1 className="text-3xl font-bold mb-1">
-          <span className="text-cyan-400">💧</span> spillover
-        </h1>
-        <p className="text-gray-500">{project.name} — team capacity dashboard</p>
-      </div>
+    <main className="max-w-6xl mx-auto px-8 py-16">
+      <Header projectName={project.name} />
 
-      <StatsBar
+      <StatsRow
         totalMembers={members.length}
         avgUsage={avgUsage}
         spilledTasks={spilledTasks}
         totalTokensSaved={totalTokensSaved}
       />
 
-      <section className="mb-12">
-        <h2 className="text-lg font-semibold mb-4 text-gray-300">
-          Team hydration
-        </h2>
+      <section className="mb-16">
+        <SectionTitle>team hydration</SectionTitle>
         <TeamGrid members={members} usageMap={usageMap} />
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold mb-4 text-gray-300">
-          Recent tasks
-        </h2>
+        <SectionTitle>activity</SectionTitle>
         <TaskLog tasks={tasks} members={members} />
       </section>
     </main>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-6">
+      {children}
+    </h2>
   );
 }
