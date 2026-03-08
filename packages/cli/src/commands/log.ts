@@ -1,50 +1,50 @@
 import chalk from "chalk";
-import { requireProject, getSupabase } from "../config.js";
+import { requireProject, getDb } from "../config.js";
 
 export async function logCommand(options: { n: string }) {
   console.log();
-  console.log(chalk.cyan("  💧 spillover log"));
+  console.log(chalk.cyan("  \ud83d\udca7 spillover log"));
   console.log();
 
   const { projectId, userId } = requireProject();
-  const supabase = getSupabase();
+  const sql = getDb();
   const limit = parseInt(options.n, 10) || 10;
 
-  const { data: tasks, error } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("project_id", projectId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const tasks = await sql`
+    SELECT * FROM tasks
+    WHERE project_id = ${projectId}
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `;
 
-  if (error) {
-    console.error(chalk.red("Failed to fetch tasks:"), error.message);
-    process.exit(1);
-  }
-
-  if (!tasks || tasks.length === 0) {
-    console.log(chalk.dim("  No tasks yet. Run: spillover run \"your prompt\""));
+  if (tasks.length === 0) {
+    console.log(chalk.dim('  No tasks yet. Run: spillover run "your prompt"'));
+    await sql.end();
     return;
   }
 
-  // Get member info for display
-  const userIds = [...new Set(tasks.flatMap((t) => [t.submitted_by, t.assigned_to].filter(Boolean)))];
-  const { data: members } = await supabase
-    .from("members")
-    .select("*")
-    .in("user_id", userIds);
+  // Get member info
+  const userIds = [
+    ...new Set(
+      tasks.flatMap((t) => [t.submitted_by, t.assigned_to].filter(Boolean))
+    ),
+  ];
 
-  const memberMap = new Map(members?.map((m) => [m.user_id, m]) || []);
+  const members = await sql`
+    SELECT * FROM members WHERE user_id = ANY(${userIds})
+  `;
+
+  const memberMap = new Map(members.map((m) => [m.user_id, m]));
   const getName = (id: string) => {
     const m = memberMap.get(id);
     return m?.github_handle || m?.email || id.slice(0, 8);
   };
 
   const statusIcon: Record<string, string> = {
-    queued: "⏳",
-    running: "🔄",
-    done: "✅",
-    failed: "❌",
+    queued: "\u23f3",
+    running: "\ud83d\udd04",
+    done: "\u2705",
+    failed: "\u274c",
   };
 
   for (const task of tasks) {
@@ -65,6 +65,7 @@ export async function logCommand(options: { n: string }) {
   }
 
   console.log();
+  await sql.end();
 }
 
 function timeAgo(dateStr: string): string {

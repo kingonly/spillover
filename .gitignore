@@ -5,3 +5,5 @@ dist/
 *.tsbuildinfo
 .turbo
 .next
+supabase/.temp/
+.env

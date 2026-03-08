@@ -1,8 +1,8 @@
 import chalk from "chalk";
 import ora from "ora";
-import { execSync, spawn } from "child_process";
+import { execSync } from "child_process";
 import { SPILLOVER_THRESHOLD } from "@spillover/shared";
-import { requireProject, getSupabase } from "../config.js";
+import { requireProject, getDb } from "../config.js";
 import { getUsagePercent } from "../usage.js";
 
 interface RunOptions {
@@ -13,41 +13,40 @@ interface RunOptions {
 
 export async function runCommand(prompt: string, options: RunOptions) {
   console.log();
-  console.log(chalk.cyan("  💧 spillover run"));
+  console.log(chalk.cyan("  \ud83d\udca7 spillover run"));
   console.log();
 
   const { projectId, userId } = requireProject();
-  const supabase = getSupabase();
+  const sql = getDb();
 
   const usagePercent = await getUsagePercent();
   const shouldSpillover = usagePercent > SPILLOVER_THRESHOLD * 100 && !options.local;
 
   if (shouldSpillover) {
-    // Find best teammate to handle this
     const spinner = ora("Finding a teammate with spare capacity...").start();
 
-    const { data: members } = await supabase
-      .from("members")
-      .select("*")
-      .eq("project_id", projectId)
-      .neq("user_id", userId);
+    const members = await sql`
+      SELECT * FROM members
+      WHERE project_id = ${projectId} AND user_id != ${userId}
+    `;
 
     const today = new Date().toISOString().split("T")[0];
-    const { data: usageLogs } = await supabase
-      .from("usage_logs")
-      .select("*")
-      .eq("date", today)
-      .in("user_id", members?.map((m) => m.user_id) || []);
+    const memberIds = members.map((m) => m.user_id);
 
-    const usageMap = new Map(usageLogs?.map((u) => [u.user_id, u]) || []);
+    const usageLogs = await sql`
+      SELECT * FROM usage_logs
+      WHERE date = ${today} AND user_id = ANY(${memberIds})
+    `;
+
+    const usageMap = new Map(usageLogs.map((u) => [u.user_id, u]));
 
     // Find member with lowest usage
     let bestMember: any = null;
     let lowestUsage = 100;
 
-    for (const member of members || []) {
+    for (const member of members) {
       const usage = usageMap.get(member.user_id);
-      const percent = usage?.usage_percent || 0;
+      const percent = Number(usage?.usage_percent || 0);
       if (percent < lowestUsage) {
         lowestUsage = percent;
         bestMember = member;
@@ -56,6 +55,7 @@ export async function runCommand(prompt: string, options: RunOptions) {
 
     if (!bestMember || lowestUsage > SPILLOVER_THRESHOLD * 100) {
       spinner.warn(chalk.yellow("No teammates with spare capacity. Running locally."));
+      await sql.end();
       runLocally(prompt, options);
       return;
     }
@@ -66,61 +66,60 @@ export async function runCommand(prompt: string, options: RunOptions) {
     );
 
     // Create task in queue
-    const { data: task, error } = await supabase
-      .from("tasks")
-      .insert({
-        project_id: projectId,
-        repo_url: options.repo || "",
-        branch: options.branch || "main",
-        prompt,
-        submitted_by: userId,
-        assigned_to: bestMember.user_id,
-        status: "queued",
-      })
-      .select()
-      .single();
+    const tasks = await sql`
+      INSERT INTO tasks (project_id, repo_url, branch, prompt, submitted_by, assigned_to, status)
+      VALUES (${projectId}, ${options.repo || ""}, ${options.branch || "main"}, ${prompt}, ${userId}, ${bestMember.user_id}, 'queued')
+      RETURNING *
+    `;
 
-    if (error) {
-      console.error(chalk.red("Failed to create task:"), error.message);
-      process.exit(1);
-    }
+    const task = tasks[0];
 
     console.log();
     console.log(`  ${chalk.dim("task:")}   #${task.id.slice(0, 8)}`);
-    console.log(`  ${chalk.dim("status:")} queued — waiting for @${memberName} to pick it up`);
+    console.log(`  ${chalk.dim("status:")} queued \u2014 waiting for @${memberName}'s agent`);
     console.log();
-    console.log(chalk.dim("  Listening for completion..."));
+    console.log(chalk.dim("  Polling for completion..."));
 
-    // Subscribe to task updates
-    const channel = supabase
-      .channel(`task-${task.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "tasks", filter: `id=eq.${task.id}` },
-        (payload) => {
-          const updated = payload.new as any;
-          if (updated.status === "done") {
-            console.log();
-            console.log(chalk.green(`  ✅ done — branch: ${updated.result_branch}`));
-            if (updated.tokens_used) {
-              console.log(chalk.dim(`  💰 tokens used: ${updated.tokens_used.toLocaleString()}`));
-            }
-            channel.unsubscribe();
-            process.exit(0);
-          } else if (updated.status === "failed") {
-            console.log();
-            console.error(chalk.red("  ❌ task failed"));
-            channel.unsubscribe();
-            process.exit(1);
-          }
+    // Poll for task completion
+    const pollInterval = setInterval(async () => {
+      const updated = await sql`
+        SELECT * FROM tasks WHERE id = ${task.id}
+      `;
+      if (updated.length === 0) return;
+
+      const t = updated[0];
+      if (t.status === "done") {
+        clearInterval(pollInterval);
+        console.log();
+        console.log(chalk.green(`  \u2705 done \u2014 branch: ${t.result_branch}`));
+        if (t.tokens_used) {
+          console.log(chalk.dim(`  \ud83d\udcb0 tokens used: ${Number(t.tokens_used).toLocaleString()}`));
         }
-      )
-      .subscribe();
+        await sql.end();
+        process.exit(0);
+      } else if (t.status === "failed") {
+        clearInterval(pollInterval);
+        console.log();
+        console.error(chalk.red("  \u274c task failed"));
+        await sql.end();
+        process.exit(1);
+      }
+    }, 5000);
+
+    // Timeout after 10 minutes
+    setTimeout(async () => {
+      clearInterval(pollInterval);
+      console.log();
+      console.log(chalk.yellow("  \u23f0 timed out waiting for task completion"));
+      await sql.end();
+      process.exit(1);
+    }, 600_000);
   } else {
     console.log(
-      chalk.dim(`  You're at ${Math.round(usagePercent)}% — running locally`)
+      chalk.dim(`  You're at ${Math.round(usagePercent)}% \u2014 running locally`)
     );
     console.log();
+    await sql.end();
     runLocally(prompt, options);
   }
 }
@@ -129,14 +128,15 @@ function runLocally(prompt: string, options: RunOptions) {
   const spinner = ora("Running with Claude Code...").start();
 
   try {
-    const args = ["-p", prompt, "--output-format", "json"];
-
-    const result = execSync(`claude ${args.map((a) => `"${a}"`).join(" ")}`, {
-      cwd: process.cwd(),
-      encoding: "utf-8",
-      maxBuffer: 50 * 1024 * 1024,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    const result = execSync(
+      `claude -p ${JSON.stringify(prompt)} --output-format json`,
+      {
+        cwd: process.cwd(),
+        encoding: "utf-8",
+        maxBuffer: 50 * 1024 * 1024,
+        stdio: ["pipe", "pipe", "pipe"],
+      }
+    );
 
     spinner.succeed(chalk.green("Done!"));
     console.log();

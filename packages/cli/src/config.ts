@@ -1,5 +1,5 @@
 import Conf from "conf";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import postgres from "postgres";
 
 // Local config stored in ~/.config/spillover/config.json
 export const config = new Conf({
@@ -10,20 +10,30 @@ export const config = new Conf({
     github_handle: { type: "string" },
     project_id: { type: "string" },
     project_name: { type: "string" },
+    database_url: { type: "string" },
   },
 });
 
-// TODO: Replace with actual Supabase project credentials
-const SUPABASE_URL = process.env.SPILLOVER_SUPABASE_URL || "https://YOUR_PROJECT.supabase.co";
-const SUPABASE_ANON_KEY = process.env.SPILLOVER_SUPABASE_ANON_KEY || "YOUR_ANON_KEY";
+let _sql: postgres.Sql | null = null;
 
-let _supabase: SupabaseClient | null = null;
+export function getDb(): postgres.Sql {
+  if (!_sql) {
+    const url =
+      (config.get("database_url") as string) ||
+      process.env.SPILLOVER_DATABASE_URL ||
+      "";
 
-export function getSupabase(): SupabaseClient {
-  if (!_supabase) {
-    _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    if (!url) {
+      console.error(
+        "No database configured. Run: spillover init\n" +
+          "Or set SPILLOVER_DATABASE_URL environment variable."
+      );
+      process.exit(1);
+    }
+
+    _sql = postgres(url, { ssl: "require" });
   }
-  return _supabase;
+  return _sql;
 }
 
 export function requireProject(): { projectId: string; userId: string } {
