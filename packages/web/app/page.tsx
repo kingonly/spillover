@@ -40,14 +40,46 @@ export default async function Home() {
 
   if (!project) {
     return (
-      <main className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-5xl mb-6 text-shimmer font-bold tracking-tight">spillover</div>
-          <p className="text-[var(--color-text-secondary)] text-sm">
-            No projects yet. Run{" "}
-            <code className="bg-[var(--color-surface)] px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
-              spillover init
-            </code>
+      <main className="flex items-center justify-center min-h-screen px-8">
+        <div className="max-w-lg w-full">
+          <div className="text-4xl mb-3 text-shimmer font-bold tracking-tight">spillover</div>
+          <p className="text-[var(--color-text-secondary)] text-sm mb-10">
+            Pool your team&apos;s Claude Code capacity. No tokens left behind.
+          </p>
+
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-6 mb-6">
+            <h2 className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-4">get started</h2>
+            <div className="space-y-4 text-sm">
+              <div>
+                <p className="text-[var(--color-text-secondary)] mb-2">1. Install the CLI</p>
+                <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
+                  npm i -g spillover
+                </code>
+              </div>
+              <div>
+                <p className="text-[var(--color-text-secondary)] mb-2">2. Create a project</p>
+                <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
+                  spillover init my-team
+                </code>
+              </div>
+              <div>
+                <p className="text-[var(--color-text-secondary)] mb-2">3. Share with your team and start the agent</p>
+                <div className="bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] space-y-1">
+                  <code className="block text-[var(--color-accent)]">spillover join &lt;project-id&gt;</code>
+                  <code className="block text-[var(--color-accent)]">spillover agent</code>
+                </div>
+              </div>
+              <div>
+                <p className="text-[var(--color-text-secondary)] mb-2">4. Submit tasks — they auto-route to whoever has spare capacity</p>
+                <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
+                  spillover run &quot;fix the auth bug&quot; --repo github.com/team/app
+                </code>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[var(--color-text-muted)] text-xs">
+            This dashboard will show your team&apos;s usage and tasks once a project is created.
           </p>
         </div>
       </main>
