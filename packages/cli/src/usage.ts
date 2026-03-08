@@ -2,19 +2,21 @@ import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
 
-// Claude Code stores session data in ~/.claude/projects/*/sessions/
-// Each session is a JSONL file with conversation turns and token usage
+// Claude Code stores session data in ~/.claude/projects/*/*.jsonl
+// Each line is a JSON object with conversation turns and token usage
 
 interface SessionMessage {
   type: string;
-  model?: string;
-  usage?: {
-    input_tokens?: number;
-    output_tokens?: number;
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
-  };
   timestamp?: string;
+  message?: {
+    model?: string;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
+  };
 }
 
 interface UsageSummary {
@@ -41,16 +43,16 @@ async function findSessionFiles(): Promise<string[]> {
 
     for (const project of projects) {
       if (!project.isDirectory()) continue;
-      const sessionsDir = join(projectsDir, project.name, "sessions");
+      const projectDir = join(projectsDir, project.name);
       try {
-        const sessions = await readdir(sessionsDir);
-        for (const session of sessions) {
-          if (session.endsWith(".jsonl")) {
-            files.push(join(sessionsDir, session));
+        const entries = await readdir(projectDir);
+        for (const entry of entries) {
+          if (entry.endsWith(".jsonl")) {
+            files.push(join(projectDir, entry));
           }
         }
       } catch {
-        // no sessions dir for this project
+        // skip unreadable project dirs
       }
     }
   } catch {
@@ -91,16 +93,17 @@ export async function getTodayUsage(): Promise<UsageSummary> {
 
       for (const line of lines) {
         const msg = parseSessionLine(line);
-        if (!msg?.usage || !msg.timestamp) continue;
+        const usage = msg?.message?.usage;
+        if (!usage || !msg?.timestamp) continue;
 
         const msgDate = msg.timestamp.split("T")[0];
         if (msgDate !== today) continue;
 
         sessionHasToday = true;
-        summary.total_input_tokens += msg.usage.input_tokens || 0;
-        summary.total_output_tokens += msg.usage.output_tokens || 0;
-        summary.total_cache_creation_tokens += msg.usage.cache_creation_input_tokens || 0;
-        summary.total_cache_read_tokens += msg.usage.cache_read_input_tokens || 0;
+        summary.total_input_tokens += usage.input_tokens || 0;
+        summary.total_output_tokens += usage.output_tokens || 0;
+        summary.total_cache_creation_tokens += usage.cache_creation_input_tokens || 0;
+        summary.total_cache_read_tokens += usage.cache_read_input_tokens || 0;
       }
 
       if (sessionHasToday) summary.session_count++;
