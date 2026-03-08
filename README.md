@@ -2,6 +2,8 @@
 
 Pool your team's Claude Code capacity. No tokens left behind.
 
+**Dashboard**: [spillover-app.vercel.app](https://spillover-app.vercel.app)
+
 ![Dashboard](assets/dashboard.png)
 
 ## What it does
