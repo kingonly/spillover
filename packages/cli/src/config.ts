@@ -8,6 +8,7 @@ export const config = new Conf({
     user_id: { type: "string" },
     email: { type: "string" },
     github_handle: { type: "string" },
+    github_token: { type: "string" },
     project_id: { type: "string" },
     project_name: { type: "string" },
     database_url: { type: "string" },

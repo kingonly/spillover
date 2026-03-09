@@ -6,6 +6,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID,
       clientSecret: process.env.AUTH_GITHUB_SECRET,
+      authorization: {
+        params: { scope: "read:user user:email repo" },
+      },
     }),
   ],
   pages: {
@@ -17,23 +20,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const isOnSignIn = request.nextUrl.pathname.startsWith("/sign-in");
 
       if (isOnSignIn) {
-        // If already logged in, redirect to dashboard
         if (isLoggedIn) return Response.redirect(new URL("/", request.nextUrl));
-        return true; // Allow access to sign-in page
+        return true;
       }
 
-      // Protect all other routes
       return isLoggedIn;
     },
     async signIn() {
-      // Users join projects explicitly via /join/<projectId> links.
-      // No auto-add — signing in alone doesn't grant project access.
       return true;
     },
-    async jwt({ token, profile }) {
+    async jwt({ token, profile, account }) {
       if (profile) {
         token.githubHandle = profile.login as string;
         token.avatar = profile.avatar_url as string;
+      }
+      if (account) {
+        token.accessToken = account.access_token;
       }
       return token;
     },
@@ -43,6 +45,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       if (token.avatar) {
         (session.user as any).image = token.avatar;
+      }
+      if (token.accessToken) {
+        (session as any).accessToken = token.accessToken;
       }
       return session;
     },

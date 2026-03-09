@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { StatsRow } from "./components/stats-row";
 import { TeamGrid } from "./components/team-grid";
 import { TaskLog } from "./components/task-log";
+import { IssueLog } from "./components/issue-log";
+import { RepoPicker } from "./components/repo-picker";
 import { UserMenu } from "./components/user-menu";
 import { ProjectSelector } from "./components/project-selector";
 import { InviteButton } from "./components/invite-button";
@@ -12,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 async function getUserProjects(githubHandle: string) {
   return sql`
-    SELECT p.* FROM projects p
+    SELECT DISTINCT p.* FROM projects p
     JOIN members m ON m.project_id = p.id
     WHERE m.github_handle = ${githubHandle}
        OR m.user_id = ${githubHandle}
@@ -21,14 +23,15 @@ async function getUserProjects(githubHandle: string) {
 }
 
 async function getProjectData(projectId: string) {
-  const [members, tasks, usageLogs] = await Promise.all([
+  const [members, repos, tasks, usageLogs] = await Promise.all([
     sql`SELECT * FROM members WHERE project_id = ${projectId}` as any as Promise<any[]>,
+    sql`SELECT * FROM project_repos WHERE project_id = ${projectId} ORDER BY added_at DESC` as any as Promise<any[]>,
     sql`SELECT * FROM tasks WHERE project_id = ${projectId} ORDER BY created_at DESC LIMIT 20` as any as Promise<any[]>,
     sql`SELECT * FROM usage_logs WHERE date = current_date AND user_id = ANY(
       SELECT user_id FROM members WHERE project_id = ${projectId}
     )` as any as Promise<any[]>,
   ]);
-  return { members, tasks, usageLogs };
+  return { members, repos, tasks, usageLogs };
 }
 
 export default async function Home({
@@ -54,7 +57,7 @@ export default async function Home({
   const params = await searchParams;
   const selectedId = params.project || projects[0].id;
   const project = projects.find((p: any) => p.id === selectedId) || projects[0];
-  const { members, tasks, usageLogs } = await getProjectData(project.id);
+  const { members, repos, tasks, usageLogs } = await getProjectData(project.id);
 
   const usageMap = Object.fromEntries(usageLogs.map((u: any) => [u.user_id, u]));
 
@@ -78,6 +81,8 @@ export default async function Home({
     "use server";
     await signOut({ redirectTo: "/sign-in" });
   }
+
+  const hasRepos = repos.length > 0;
 
   return (
     <main className="max-w-6xl mx-auto px-8 py-16">
@@ -123,10 +128,31 @@ export default async function Home({
         <TeamGrid members={members} usageMap={usageMap} />
       </section>
 
-      <section>
-        <SectionTitle>activity</SectionTitle>
-        <TaskLog tasks={tasks} members={members} />
+      <section className="mb-16">
+        <SectionTitle>repositories</SectionTitle>
+        <RepoPicker
+          projectId={project.id}
+          initialRepos={repos.map((r: any) => ({ repo_full_name: r.repo_full_name }))}
+        />
       </section>
+
+      <section className="mb-16">
+        <SectionTitle>issues</SectionTitle>
+        {hasRepos ? (
+          <IssueLog projectId={project.id} members={members} />
+        ) : (
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Add a repository above to see spillover-labeled issues.
+          </p>
+        )}
+      </section>
+
+      {tasks.length > 0 && (
+        <section>
+          <SectionTitle>task history</SectionTitle>
+          <TaskLog tasks={tasks} members={members} />
+        </section>
+      )}
     </main>
   );
 }

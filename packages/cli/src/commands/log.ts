@@ -6,7 +6,7 @@ export async function logCommand(options: { n: string }) {
   console.log(chalk.cyan("  \ud83d\udca7 spillover log"));
   console.log();
 
-  const { projectId, userId } = requireProject();
+  const { projectId } = requireProject();
   const sql = getDb();
   const limit = parseInt(options.n, 10) || 10;
 
@@ -18,7 +18,11 @@ export async function logCommand(options: { n: string }) {
   `;
 
   if (tasks.length === 0) {
-    console.log(chalk.dim('  No tasks yet. Run: spillover run "your prompt"'));
+    console.log(
+      chalk.dim(
+        '  No tasks yet. Label a GitHub issue with "spillover" to get started.',
+      ),
+    );
     await sql.end();
     return;
   }
@@ -26,7 +30,7 @@ export async function logCommand(options: { n: string }) {
   // Get member info
   const userIds = [
     ...new Set(
-      tasks.flatMap((t) => [t.submitted_by, t.assigned_to].filter(Boolean))
+      tasks.flatMap((t: any) => [t.submitted_by, t.assigned_to].filter(Boolean)),
     ),
   ];
 
@@ -34,7 +38,7 @@ export async function logCommand(options: { n: string }) {
     SELECT * FROM members WHERE user_id = ANY(${userIds})
   `;
 
-  const memberMap = new Map(members.map((m) => [m.user_id, m]));
+  const memberMap = new Map(members.map((m: any) => [m.user_id, m]));
   const getName = (id: string) => {
     const m = memberMap.get(id);
     return m?.github_handle || m?.email || id.slice(0, 8);
@@ -49,18 +53,19 @@ export async function logCommand(options: { n: string }) {
 
   for (const task of tasks) {
     const icon = statusIcon[task.status] || "?";
-    const prompt =
-      task.prompt.length > 40
+    const label = task.github_issue_number
+      ? `${task.github_repo_full_name}#${task.github_issue_number}`
+      : task.prompt?.length > 40
         ? task.prompt.slice(0, 40) + "..."
-        : task.prompt;
+        : task.prompt || "(no prompt)";
     const ranBy =
       task.assigned_to && task.assigned_to !== task.submitted_by
-        ? chalk.dim(`@${getName(task.assigned_to)} ran it`)
-        : chalk.dim("ran locally");
+        ? chalk.dim(`@${getName(task.assigned_to)}`)
+        : chalk.dim("local");
     const ago = timeAgo(task.created_at);
 
     console.log(
-      `  ${chalk.dim("#" + task.id.slice(0, 8))}  ${prompt.padEnd(44)} ${ranBy.padEnd(30)} ${ago.padEnd(14)} ${icon}`
+      `  ${icon}  ${label.padEnd(44)} ${ranBy.padEnd(20)} ${ago}`,
     );
   }
 
@@ -70,7 +75,7 @@ export async function logCommand(options: { n: string }) {
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor(
-    (Date.now() - new Date(dateStr).getTime()) / 1000
+    (Date.now() - new Date(dateStr).getTime()) / 1000,
   );
   if (seconds < 60) return "just now";
   if (seconds < 3600) return `${Math.floor(seconds / 60)}min ago`;

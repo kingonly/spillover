@@ -8,6 +8,7 @@ import { runCommand } from "./commands/run.js";
 import { joinCommand } from "./commands/join.js";
 import { logCommand } from "./commands/log.js";
 import { agentCommand } from "./commands/agent.js";
+import { loginCommand } from "./commands/login.js";
 
 const program = new Command();
 
@@ -53,8 +54,14 @@ program
   .action(logCommand);
 
 program
+  .command("login")
+  .description("Authenticate with GitHub for issue-based tasks")
+  .option("--token <token>", "GitHub personal access token with repo scope")
+  .action(loginCommand);
+
+program
   .command("agent")
-  .description("Start the background agent to accept tasks")
+  .description("Start the agent to pick up spillover-labeled GitHub issues")
   .option("--daemon", "Run as a background daemon")
   .action(agentCommand);
 

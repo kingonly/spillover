@@ -8,14 +8,18 @@ Pool your team's Claude Code capacity. No tokens left behind.
 
 ## What it does
 
-Your team pays for Claude Code subscriptions. Some devs hit their limits while others barely use theirs. Spillover automatically routes tasks to teammates with spare capacity.
+Your team pays for Claude Code subscriptions. Some devs hit their limits while others barely use theirs. Spillover automatically routes tasks to teammates with spare capacity — using GitHub issues as the task queue.
 
 ## How it works
+
+1. Link your GitHub repos to a spillover project
+2. Label any issue with `spillover` to queue it
+3. An agent with spare capacity picks it up, runs Claude Code, and pushes a result branch
 
 ```
 $ spillover status
 
-  🫧 spillover — team hydration check
+  team hydration check
 
   @roy      ████████░░  78%  — running warm
   @sarah    ███░░░░░░░  27%  — plenty to give
@@ -23,40 +27,46 @@ $ spillover status
 
   team capacity: 61% available
 
-$ spillover run "add rate limiting to /api/payments" --repo github.com/team/app
+$ spillover run "add rate limiting to /api/payments" --repo team/app
 
-  💧 you're at 78% — spilling over to @dave (12%)
-  🔄 cloning repo...
-  🧠 running prompt on @dave's machine...
-  ✅ done — branch: spillover/task-47
-  💰 saved you ~$3.20
+  Created issue #42 on team/app
+  An agent will pick this up when it has spare capacity.
 ```
 
 ## Quick start
 
 ```bash
 # Install
-npm i -g @spillover/cli
+npm i -g spillover
 
 # Create a project
 spillover init my-team
 
-# Share with your team
-spillover join <project-id>
+# Authenticate with GitHub
+spillover login --token ghp_...
 
-# Start accepting tasks
+# Start the agent (picks up spillover-labeled issues)
 spillover agent
 
-# Submit a task
-spillover run "fix the auth bug" --repo github.com/team/app
+# Or create an issue from the CLI
+spillover run "fix the auth bug" --repo owner/repo
 ```
+
+## Dashboard
+
+Sign in at [spillover-app.vercel.app](https://spillover-app.vercel.app) to:
+
+- See team capacity (who's busy, who has spare tokens)
+- Link GitHub repos to your project
+- View spillover-labeled issues and their status
+- Invite teammates via shareable link
 
 ## Architecture
 
 ```
 packages/
-├── cli/          # CLI tool (npm: @spillover/cli)
-├── web/          # Dashboard (Next.js)
+├── cli/          # CLI tool (npm: spillover)
+├── web/          # Dashboard (Next.js 16)
 └── shared/       # Shared types
 supabase/         # Database migrations
 ```
@@ -67,4 +77,5 @@ supabase/         # Database migrations
 - **Database**: Neon (serverless Postgres)
 - **Dashboard**: Next.js + Tailwind CSS
 - **Auth**: NextAuth.js with GitHub OAuth
+- **Task queue**: GitHub issues with `spillover` label
 - **Task execution**: Claude Code headless (`claude -p`)
