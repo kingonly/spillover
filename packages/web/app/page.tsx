@@ -9,6 +9,8 @@ import { RepoPicker } from "./components/repo-picker";
 import { UserMenu } from "./components/user-menu";
 import { ProjectSelector } from "./components/project-selector";
 import { InviteButton } from "./components/invite-button";
+import { OnboardingPage } from "./components/onboarding";
+import { ProjectCode } from "./components/project-code";
 
 export const dynamic = "force-dynamic";
 
@@ -48,10 +50,16 @@ export default async function Home({
   const projects = await getUserProjects(githubHandle);
 
   if (projects.length === 0) {
-    return <OnboardingPage user={user} signOutFn={async () => {
+    async function handleSignOutOnboarding() {
       "use server";
       await signOut({ redirectTo: "/sign-in" });
-    }} />;
+    }
+    return (
+      <OnboardingPage
+        githubHandle={user.githubHandle || user.email || ""}
+        signOutAction={handleSignOutOnboarding}
+      />
+    );
   }
 
   const params = await searchParams;
@@ -103,6 +111,7 @@ export default async function Home({
                 {project.name}
               </span>
             )}
+            <ProjectCode code={project.code} />
             <InviteButton projectId={project.id} />
           </div>
           <p className="text-xs text-[var(--color-text-muted)]">
@@ -153,80 +162,6 @@ export default async function Home({
           <TaskLog tasks={tasks} members={members} />
         </section>
       )}
-    </main>
-  );
-}
-
-function OnboardingPage({
-  user,
-  signOutFn,
-}: {
-  user: any;
-  signOutFn: () => Promise<void>;
-}) {
-  return (
-    <main className="flex items-center justify-center min-h-screen px-8">
-      <div className="max-w-lg w-full">
-        <div className="flex items-center justify-between mb-10">
-          <div>
-            <div className="text-4xl mb-1 text-shimmer font-bold tracking-tight">
-              spillover
-            </div>
-            <p className="text-[var(--color-text-muted)] text-xs">
-              signed in as {user.githubHandle || user.email}
-            </p>
-          </div>
-          <form action={signOutFn}>
-            <button
-              type="submit"
-              className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer"
-            >
-              sign out
-            </button>
-          </form>
-        </div>
-
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-6 mb-6">
-          <h2 className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-4">
-            join a project
-          </h2>
-          <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-            Ask your team lead for an invite link, or create a new project from
-            the CLI:
-          </p>
-          <div className="space-y-4 text-sm">
-            <div>
-              <p className="text-[var(--color-text-secondary)] mb-2">
-                1. Install the CLI
-              </p>
-              <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
-                npm i -g spillover
-              </code>
-            </div>
-            <div>
-              <p className="text-[var(--color-text-secondary)] mb-2">
-                2. Create a project and log in
-              </p>
-              <div className="bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] space-y-1">
-                <code className="block text-[var(--color-accent)]">spillover init my-team</code>
-                <code className="block text-[var(--color-accent)]">spillover login</code>
-              </div>
-            </div>
-            <div>
-              <p className="text-[var(--color-text-secondary)] mb-2">
-                3. Or join an existing project
-              </p>
-              <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
-                spillover join &lt;project-id&gt;
-              </code>
-            </div>
-          </div>
-        </div>
-
-        <p className="text-[var(--color-text-muted)] text-xs">
-          Your dashboard will appear here once you&apos;re part of a project.
-        </p>
-      </div>
     </main>
   );
 }

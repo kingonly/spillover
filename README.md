@@ -12,52 +12,33 @@ Your team pays for Claude Code subscriptions. Some devs hit their limits while o
 
 ## How it works
 
-1. Link your GitHub repos to a spillover project
-2. Label any issue with `spillover` to queue it
-3. An agent with spare capacity picks it up, runs Claude Code, and pushes a result branch
-
-```
-$ spillover status
-
-  team hydration check
-
-  @roy      ████████░░  78%  — running warm
-  @sarah    ███░░░░░░░  27%  — plenty to give
-  @dave     █░░░░░░░░░  12%  — overflowing
-
-  team capacity: 61% available
-
-$ spillover run "add rate limiting to /api/payments" --repo team/app
-
-  Created issue #42 on team/app
-  An agent will pick this up when it has spare capacity.
-```
+1. Create a project on the dashboard, share the project code with your team
+2. Link your GitHub repos, browse issues, click "queue"
+3. Agents with spare capacity pick up queued issues, run Claude Code, push a result branch
 
 ## Quick start
+
+### Dashboard (setup)
+
+1. Sign in at [spillover-app.vercel.app](https://spillover-app.vercel.app)
+2. Create a project (or join one with a project code like `SPILL-A7X3`)
+3. Link your GitHub repos
+4. Queue issues for your team
+
+### CLI (agents)
 
 ```bash
 # Install
 npm i -g spillover
 
-# Create a project
-spillover init my-team
-
 # Authenticate with GitHub (opens browser)
 spillover login
 
-# Start the agent (picks up spillover-labeled issues)
+# Start the agent (picks up queued issues)
 spillover agent
 ```
 
-## Dashboard
-
-Sign in at [spillover-app.vercel.app](https://spillover-app.vercel.app) to:
-
-- See team capacity (who's busy, who has spare tokens)
-- Link GitHub repos to your project
-- Browse and queue issues (adds the `spillover` label)
-- Track issue status and agent progress
-- Invite teammates via shareable link
+Each teammate runs `spillover login` and `spillover agent` on their machine. When they have spare Claude Code capacity, the agent picks up queued issues automatically.
 
 ## Architecture
 
