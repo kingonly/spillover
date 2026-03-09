@@ -2,6 +2,7 @@ import chalk from "chalk";
 import { config } from "../config.js";
 
 const CLIENT_ID = "Ov23liESD9lIq3sUWa0U";
+const API_BASE = "https://spillover-app.vercel.app";
 
 export async function loginCommand(options: { token?: string }) {
   console.log();
@@ -75,6 +76,8 @@ async function loginWithDevice() {
   console.log();
   console.log(chalk.green(`  Authenticated as @${user.login}`));
   console.log(chalk.dim(`  Token stored in ${config.path}`));
+
+  await syncProjectConfig(token);
   console.log();
 }
 
@@ -143,5 +146,41 @@ async function loginWithToken(token: string) {
 
   console.log(chalk.green(`  Authenticated as @${user.login}`));
   console.log(chalk.dim(`  Token stored in ${config.path}`));
+
+  await syncProjectConfig(token);
   console.log();
+}
+
+async function syncProjectConfig(token: string) {
+  try {
+    const res = await fetch(`${API_BASE}/api/cli/config`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      console.log(chalk.dim("  Could not sync project config from dashboard."));
+      return;
+    }
+
+    const data = await res.json();
+
+    if (data.database_url) {
+      config.set("database_url", data.database_url);
+    }
+
+    if (data.projects && data.projects.length > 0) {
+      const project = data.projects[0]; // use first (most recent) project
+      config.set("project_id", project.id);
+      config.set("project_name", project.name);
+      config.set("user_id", data.github_handle);
+      console.log(chalk.green(`  Synced project: ${project.name} (${project.code})`));
+    } else {
+      console.log(chalk.yellow("  No projects found. Create one at https://spillover-app.vercel.app"));
+    }
+  } catch {
+    console.log(chalk.dim("  Could not reach dashboard to sync config."));
+  }
 }

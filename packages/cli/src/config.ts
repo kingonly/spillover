@@ -26,7 +26,7 @@ export function getDb(): postgres.Sql {
 
     if (!url) {
       console.error(
-        "No database configured. Run: spillover init\n" +
+        "No database configured. Run: spillover login\n" +
           "Or set SPILLOVER_DATABASE_URL environment variable."
       );
       process.exit(1);
@@ -41,7 +41,7 @@ export function requireProject(): { projectId: string; userId: string } {
   const projectId = config.get("project_id") as string;
   const userId = config.get("user_id") as string;
   if (!projectId || !userId) {
-    console.error("Not connected to a project. Run: spillover init");
+    console.error("Not connected to a project. Run: spillover login");
     process.exit(1);
   }
   return { projectId, userId };
