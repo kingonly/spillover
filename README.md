@@ -22,6 +22,7 @@ Your team pays for Claude Code subscriptions. Some devs hit their limits while o
 2. Create a project (or join one with a project code like `SPILL-A7X3`)
 3. Link your GitHub repos
 4. Queue issues for your team
+5. Switch between projects or create/join more from the project dropdown
 
 ### CLI (agents)
 
@@ -32,11 +33,24 @@ npm i -g spillover
 # Authenticate with GitHub (opens browser)
 spillover login
 
-# Start the agent (picks up queued issues)
+# Start the agent (picks up queued issues from all your projects)
 spillover agent
+
+# See team capacity across all projects
+spillover status
+
+# List your projects
+spillover projects
+
+# View task history across all projects
+spillover log
+
+# Submit a task (auto-detects project from repo, or specify --project)
+spillover run "fix the auth bug" --repo owner/repo
+spillover run "add tests" --repo owner/repo --project my-team
 ```
 
-Each teammate runs `spillover login` and `spillover agent` on their machine. When they have spare Claude Code capacity, the agent picks up queued issues automatically.
+Each teammate runs `spillover login` and `spillover agent` on their machine. The agent watches all projects you're a member of and picks up queued issues when you have spare capacity.
 
 ## Architecture
 
