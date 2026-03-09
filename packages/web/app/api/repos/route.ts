@@ -10,6 +10,17 @@ export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("project");
   if (!projectId) return NextResponse.json({ error: "project required" }, { status: 400 });
 
+  const githubHandle = (session.user as any).githubHandle || "";
+  const membership = await sql`
+    SELECT 1 FROM members
+    WHERE project_id = ${projectId}
+      AND (user_id = ${githubHandle} OR github_handle = ${githubHandle})
+    LIMIT 1
+  `;
+  if (membership.length === 0) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const repos = await sql`
     SELECT * FROM project_repos WHERE project_id = ${projectId} ORDER BY added_at DESC
   `;
@@ -27,6 +38,15 @@ export async function POST(req: NextRequest) {
   }
 
   const githubHandle = (session.user as any).githubHandle || "";
+  const membership = await sql`
+    SELECT 1 FROM members
+    WHERE project_id = ${projectId}
+      AND (user_id = ${githubHandle} OR github_handle = ${githubHandle})
+    LIMIT 1
+  `;
+  if (membership.length === 0) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const result = await sql`
     INSERT INTO project_repos (project_id, repo_full_name, added_by)
@@ -46,6 +66,17 @@ export async function DELETE(req: NextRequest) {
   const { projectId, repoFullName } = await req.json();
   if (!projectId || !repoFullName) {
     return NextResponse.json({ error: "projectId and repoFullName required" }, { status: 400 });
+  }
+
+  const githubHandle = (session.user as any).githubHandle || "";
+  const membership = await sql`
+    SELECT 1 FROM members
+    WHERE project_id = ${projectId}
+      AND (user_id = ${githubHandle} OR github_handle = ${githubHandle})
+    LIMIT 1
+  `;
+  if (membership.length === 0) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   await sql`

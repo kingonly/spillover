@@ -10,6 +10,17 @@ export async function GET(req: NextRequest) {
   const projectId = req.nextUrl.searchParams.get("project");
   if (!projectId) return NextResponse.json({ error: "project required" }, { status: 400 });
 
+  const githubHandle = (session.user as any).githubHandle || "";
+  const membership = await sql`
+    SELECT 1 FROM members
+    WHERE project_id = ${projectId}
+      AND (user_id = ${githubHandle} OR github_handle = ${githubHandle})
+    LIMIT 1
+  `;
+  if (membership.length === 0) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const accessToken = (session as any).accessToken;
   if (!accessToken) {
     return NextResponse.json({ error: "No GitHub token" }, { status: 403 });
