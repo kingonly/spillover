@@ -6,7 +6,7 @@ Pool your team's Claude Code capacity. No tokens left behind.
 
 ## What it does
 
-Your team pays for Claude Code subscriptions. Some devs hit their limits while others barely use theirs. Spillover automatically routes tasks to teammates with spare capacity — using GitHub issues as the task queue.
+Your team pays for Claude Code subscriptions. Some devs hit their limits while others barely use theirs. Spillover automatically routes tasks to teammates with spare capacity using GitHub issues as the task queue.
 
 ## How it works
 
