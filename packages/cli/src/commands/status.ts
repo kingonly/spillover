@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { requireProject, getDb } from "../config.js";
+import { requireProjects, getDb } from "../config.js";
 import { getUsagePercent } from "../usage.js";
 
 function usageBar(percent: number): string {
@@ -23,47 +23,54 @@ export async function statusCommand() {
   console.log(chalk.cyan("  \ud83e\udee7 spillover") + chalk.dim(" \u2014 team hydration check"));
   console.log();
 
-  const { projectId, userId } = requireProject();
+  const { projects, userId } = requireProjects();
   const sql = getDb();
-
-  const members = await sql`
-    SELECT * FROM members WHERE project_id = ${projectId}
-  `;
-
-  if (members.length === 0) {
-    console.log(chalk.dim("  No team members yet."));
-    await sql.end();
-    return;
-  }
-
   const today = new Date().toISOString().split("T")[0];
-  const userIds = members.map((m) => m.user_id);
-
-  const usageLogs = await sql`
-    SELECT * FROM usage_logs
-    WHERE date = ${today} AND user_id = ANY(${userIds})
-  `;
-
-  const usageMap = new Map(usageLogs.map((u) => [u.user_id, u]));
   const localPercent = await getUsagePercent();
-  let totalAvailable = 0;
 
-  for (const member of members) {
-    const isMe = member.user_id === userId;
-    const usage = usageMap.get(member.user_id);
-    const percent = isMe ? localPercent : Number(usage?.usage_percent || 0);
-    const name = member.github_handle || member.email || member.user_id.slice(0, 8);
-    const tag = isMe ? chalk.dim(" (you)") : "";
-    totalAvailable += 100 - percent;
+  for (const project of projects) {
+    if (projects.length > 1) {
+      console.log(chalk.bold(`  ${project.name}`));
+      console.log();
+    }
 
-    console.log(`  @${name}${tag}`);
-    console.log(`  ${usageBar(percent)}`);
+    const members = await sql`
+      SELECT * FROM members WHERE project_id = ${project.id}
+    `;
+
+    if (members.length === 0) {
+      console.log(chalk.dim("  No team members yet."));
+      console.log();
+      continue;
+    }
+
+    const userIds = members.map((m: any) => m.user_id);
+
+    const usageLogs = await sql`
+      SELECT * FROM usage_logs
+      WHERE date = ${today} AND user_id = ANY(${userIds})
+    `;
+
+    const usageMap = new Map(usageLogs.map((u: any) => [u.user_id, u]));
+    let totalAvailable = 0;
+
+    for (const member of members) {
+      const isMe = member.user_id === userId;
+      const usage = usageMap.get(member.user_id);
+      const percent = isMe ? localPercent : Number(usage?.usage_percent || 0);
+      const name = member.github_handle || member.email || member.user_id.slice(0, 8);
+      const tag = isMe ? chalk.dim(" (you)") : "";
+      totalAvailable += 100 - percent;
+
+      console.log(`  @${name}${tag}`);
+      console.log(`  ${usageBar(percent)}`);
+      console.log();
+    }
+
+    const teamPercent = Math.round(totalAvailable / members.length);
+    console.log(chalk.dim(`  team capacity: ${teamPercent}% available`));
     console.log();
   }
-
-  const teamPercent = Math.round(totalAvailable / members.length);
-  console.log(chalk.dim(`  team capacity: ${teamPercent}% available`));
-  console.log();
 
   await sql.end();
 }

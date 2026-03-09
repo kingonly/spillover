@@ -1,11 +1,11 @@
 import chalk from "chalk";
 import ora from "ora";
 import { randomUUID } from "crypto";
-import { config, getDb } from "../config.js";
+import { config, getDb, getProjects, type ConfigProject } from "../config.js";
 
 export async function joinCommand(projectId: string) {
   console.log();
-  console.log(chalk.cyan("  💧 spillover join"));
+  console.log(chalk.cyan("  \ud83d\udca7 spillover join"));
   console.log();
 
   if (!process.env.SPILLOVER_DATABASE_URL && !config.get("database_url")) {
@@ -41,6 +41,18 @@ export async function joinCommand(projectId: string) {
     `;
 
     config.set("user_id", userId);
+
+    // Add to projects array (or update if already there)
+    const existing = getProjects();
+    const newProject: ConfigProject = {
+      id: projectId,
+      name: project.name,
+      code: project.code || "",
+    };
+    const filtered = existing.filter((p) => p.id !== projectId);
+    config.set("projects", [...filtered, newProject]);
+
+    // Keep legacy fields in sync
     config.set("project_id", projectId);
     config.set("project_name", project.name);
 

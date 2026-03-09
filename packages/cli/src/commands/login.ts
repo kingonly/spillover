@@ -171,12 +171,20 @@ async function syncProjectConfig(token: string) {
       config.set("database_url", data.database_url);
     }
 
-    if (data.projects && data.projects.length > 0) {
-      const project = data.projects[0]; // use first (most recent) project
-      config.set("project_id", project.id);
-      config.set("project_name", project.name);
+    if (data.github_handle) {
       config.set("user_id", data.github_handle);
-      console.log(chalk.green(`  Synced project: ${project.name} (${project.code})`));
+    }
+
+    if (data.projects && data.projects.length > 0) {
+      config.set("projects", data.projects);
+      // Keep legacy fields in sync
+      config.set("project_id", data.projects[0].id);
+      config.set("project_name", data.projects[0].name);
+
+      console.log(chalk.green(`  Synced ${data.projects.length} project${data.projects.length > 1 ? "s" : ""}:`));
+      for (const p of data.projects) {
+        console.log(chalk.dim(`    ${p.name} (${p.code})`));
+      }
     } else {
       console.log(chalk.yellow("  No projects found. Create one at https://spillover-app.vercel.app"));
     }

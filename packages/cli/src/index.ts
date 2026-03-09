@@ -9,6 +9,7 @@ import { joinCommand } from "./commands/join.js";
 import { logCommand } from "./commands/log.js";
 import { agentCommand } from "./commands/agent.js";
 import { loginCommand } from "./commands/login.js";
+import { projectsCommand } from "./commands/projects.js";
 
 const program = new Command();
 
@@ -45,6 +46,7 @@ program
   .option("--repo <url>", "GitHub repo URL")
   .option("--branch <name>", "Base branch", "main")
   .option("--local", "Force local execution")
+  .option("--project <name>", "Target project (by name or ID)")
   .action(runCommand);
 
 program
@@ -64,5 +66,10 @@ program
   .description("Start the agent to pick up spillover-labeled GitHub issues")
   .option("--daemon", "Run as a background daemon")
   .action(agentCommand);
+
+program
+  .command("projects")
+  .description("List all your projects")
+  .action(projectsCommand);
 
 program.parse();

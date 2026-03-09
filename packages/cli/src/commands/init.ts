@@ -1,11 +1,11 @@
 import chalk from "chalk";
 import ora from "ora";
 import { randomUUID } from "crypto";
-import { config, getDb } from "../config.js";
+import { config, getDb, getProjects } from "../config.js";
 
 export async function initCommand(name?: string) {
   console.log();
-  console.log(chalk.cyan("  💧 spillover init"));
+  console.log(chalk.cyan("  \ud83d\udca7 spillover init"));
   console.log();
 
   // Prompt for database URL if not set
@@ -47,6 +47,15 @@ export async function initCommand(name?: string) {
     `;
 
     config.set("user_id", userId);
+
+    // Add to projects array
+    const existing = getProjects();
+    config.set("projects", [
+      ...existing,
+      { id: projectId, name: projectName, code: "" },
+    ]);
+
+    // Keep legacy fields in sync
     config.set("project_id", projectId);
     config.set("project_name", projectName);
 

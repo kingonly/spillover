@@ -3,7 +3,7 @@ import { execSync } from "child_process";
 import { mkdirSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { requireProject, getDb, config } from "../config.js";
+import { requireProjects, getDb, config, type ConfigProject } from "../config.js";
 import { getUsagePercent, getTodayUsage } from "../usage.js";
 import {
   listSpilloverIssues,
@@ -20,8 +20,7 @@ export async function agentCommand(_options: { daemon?: boolean }) {
   );
   console.log();
 
-  const { projectId, userId } = requireProject();
-  const githubHandle = (config.get("github_handle") as string) || userId;
+  const { projects, userId, githubHandle } = requireProjects();
   const sql = getDb();
 
   // Verify GitHub token exists
@@ -32,6 +31,12 @@ export async function agentCommand(_options: { daemon?: boolean }) {
     );
     process.exit(1);
   }
+
+  console.log(chalk.dim(`  watching ${projects.length} project${projects.length > 1 ? "s" : ""}:`));
+  for (const p of projects) {
+    console.log(chalk.dim(`    ${p.name}`));
+  }
+  console.log();
 
   // Report initial usage
   await reportUsage(sql, userId);
@@ -53,13 +58,14 @@ export async function agentCommand(_options: { daemon?: boolean }) {
       await syncConfigFromApi(ghToken);
 
       // Re-read config each cycle (picks up synced values)
-      const currentProjectId = config.get("project_id") as string || projectId;
+      const currentProjects = (config.get("projects") as ConfigProject[]) || projects;
       const currentUserId = config.get("user_id") as string || userId;
       const currentHandle = config.get("github_handle") as string || githubHandle;
+      const projectIds = currentProjects.map((p) => p.id);
 
-      // Re-fetch repos from DB each cycle (picks up newly linked repos)
+      // Re-fetch repos from DB for ALL projects
       const repos = await sql`
-        SELECT repo_full_name FROM project_repos WHERE project_id = ${currentProjectId}
+        SELECT project_id, repo_full_name FROM project_repos WHERE project_id = ANY(${projectIds})
       `;
 
       if (repos.length === 0) {
@@ -68,17 +74,19 @@ export async function agentCommand(_options: { daemon?: boolean }) {
 
       // Log newly discovered repos
       for (const r of repos) {
-        if (!knownRepos.has(r.repo_full_name)) {
-          console.log(chalk.dim(`  watching: ${r.repo_full_name}`));
-          knownRepos.add(r.repo_full_name);
+        const key = `${r.project_id}:${r.repo_full_name}`;
+        if (!knownRepos.has(key)) {
+          const proj = currentProjects.find((p) => p.id === r.project_id);
+          console.log(chalk.dim(`  watching: ${r.repo_full_name}${proj ? ` (${proj.name})` : ""}`));
+          knownRepos.add(key);
         }
       }
 
       // 1. Check legacy tasks (backward compat)
       await checkLegacyTasks(sql, currentUserId);
 
-      // 2. Check GitHub issues labeled "spillover"
-      await checkGitHubIssues(sql, currentProjectId, currentUserId, currentHandle, repos);
+      // 2. Check GitHub issues labeled "spillover" across all projects
+      await checkGitHubIssues(sql, currentUserId, currentHandle, repos);
 
       // 3. Report usage
       await reportUsage(sql, currentUserId);
@@ -119,11 +127,12 @@ async function syncConfigFromApi(token: string) {
 
     const data = await res.json();
     if (data.database_url) config.set("database_url", data.database_url);
+    if (data.github_handle) config.set("user_id", data.github_handle);
     if (data.projects?.length > 0) {
-      const project = data.projects[0];
-      config.set("project_id", project.id);
-      config.set("project_name", project.name);
-      config.set("user_id", data.github_handle);
+      config.set("projects", data.projects);
+      // Keep legacy fields in sync
+      config.set("project_id", data.projects[0].id);
+      config.set("project_name", data.projects[0].name);
     }
   } catch {
     // non-critical
@@ -154,13 +163,13 @@ async function checkLegacyTasks(sql: any, userId: string) {
 
 async function checkGitHubIssues(
   sql: any,
-  projectId: string,
   userId: string,
   githubHandle: string,
   repos: any[],
 ) {
   for (const r of repos) {
     const repoName = r.repo_full_name;
+    const projectId = r.project_id;
     let issues: any[];
     try {
       issues = await listSpilloverIssues(repoName);
@@ -278,8 +287,6 @@ async function executeIssueTask(
     // Build prompt from issue
     const prompt = `GitHub Issue #${task.issueNumber}: ${task.title}\n\n${task.body}`;
 
-    spinner.text = `Running Claude Code on issue #${task.issueNumber}...`;
-    spinner.stop();
     console.log(chalk.dim(`  running claude on ${shortId}...`));
     const result = execSync(
       `claude -p ${JSON.stringify(prompt)} --output-format json`,

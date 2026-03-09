@@ -99,16 +99,10 @@ export default async function Home({
               spillover
             </div>
             <div className="h-5 w-px bg-[var(--color-border)]" />
-            {projects.length > 1 ? (
-              <ProjectSelector
-                projects={projects.map((p: any) => ({ id: p.id, name: p.name }))}
-                currentProjectId={project.id}
-              />
-            ) : (
-              <span className="text-sm text-[var(--color-text-secondary)]">
-                {project.name}
-              </span>
-            )}
+            <ProjectSelector
+              projects={projects.map((p: any) => ({ id: p.id, name: p.name }))}
+              currentProjectId={project.id}
+            />
             <ProjectCode code={project.code} />
             <InviteButton projectId={project.id} />
             {project.created_by === githubHandle && (

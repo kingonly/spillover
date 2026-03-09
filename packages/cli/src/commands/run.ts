@@ -2,7 +2,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { execSync } from "child_process";
 import { SPILLOVER_THRESHOLD } from "@spillover/shared";
-import { requireProject, getDb, config } from "../config.js";
+import { requireProjects, getDb, config } from "../config.js";
 import { getUsagePercent } from "../usage.js";
 import { createIssue } from "../github.js";
 
@@ -10,6 +10,7 @@ interface RunOptions {
   repo?: string;
   branch?: string;
   local?: boolean;
+  project?: string;
 }
 
 export async function runCommand(prompt: string, options: RunOptions) {
@@ -37,6 +38,22 @@ export async function runCommand(prompt: string, options: RunOptions) {
     }
 
     const repoFullName = normalizeRepo(options.repo);
+
+    // Resolve project from repo
+    const projectId = await resolveProjectForRepo(repoFullName, options.project);
+    if (!projectId) {
+      console.log(
+        chalk.yellow(
+          `  Repo ${repoFullName} is not linked to any of your projects.`,
+        ),
+      );
+      console.log(chalk.dim("  Link it in the dashboard or use --project <name>."));
+      console.log(chalk.dim("  Falling back to local execution."));
+      console.log();
+      runLocally(prompt, options);
+      return;
+    }
+
     const spinner = ora("Creating GitHub issue...").start();
 
     try {
@@ -86,6 +103,40 @@ export async function runCommand(prompt: string, options: RunOptions) {
   }
 
   runLocally(prompt, options);
+}
+
+async function resolveProjectForRepo(
+  repoFullName: string,
+  projectNameOrId?: string,
+): Promise<string | null> {
+  const { projects } = requireProjects();
+  const sql = getDb();
+
+  // If --project specified, find it by name or id
+  if (projectNameOrId) {
+    const match = projects.find(
+      (p) =>
+        p.name.toLowerCase() === projectNameOrId.toLowerCase() ||
+        p.id === projectNameOrId,
+    );
+    return match?.id || null;
+  }
+
+  // Look up which project this repo belongs to
+  const projectIds = projects.map((p) => p.id);
+  const rows = await sql`
+    SELECT project_id FROM project_repos
+    WHERE repo_full_name = ${repoFullName}
+      AND project_id = ANY(${projectIds})
+    LIMIT 1
+  `;
+
+  if (rows.length > 0) return rows[0].project_id;
+
+  // If only one project, use it
+  if (projects.length === 1) return projects[0].id;
+
+  return null;
 }
 
 function normalizeRepo(repo: string): string {

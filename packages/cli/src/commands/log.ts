@@ -1,18 +1,20 @@
 import chalk from "chalk";
-import { requireProject, getDb } from "../config.js";
+import { requireProjects, getDb } from "../config.js";
 
 export async function logCommand(options: { n: string }) {
   console.log();
   console.log(chalk.cyan("  \ud83d\udca7 spillover log"));
   console.log();
 
-  const { projectId } = requireProject();
+  const { projects } = requireProjects();
   const sql = getDb();
   const limit = parseInt(options.n, 10) || 10;
+  const projectIds = projects.map((p) => p.id);
+  const projectMap = new Map(projects.map((p) => [p.id, p.name]));
 
   const tasks = await sql`
     SELECT * FROM tasks
-    WHERE project_id = ${projectId}
+    WHERE project_id = ANY(${projectIds})
     ORDER BY created_at DESC
     LIMIT ${limit}
   `;
@@ -51,6 +53,8 @@ export async function logCommand(options: { n: string }) {
     failed: "\u274c",
   };
 
+  const showProject = projects.length > 1;
+
   for (const task of tasks) {
     const icon = statusIcon[task.status] || "?";
     const label = task.github_issue_number
@@ -63,9 +67,12 @@ export async function logCommand(options: { n: string }) {
         ? chalk.dim(`@${getName(task.assigned_to)}`)
         : chalk.dim("local");
     const ago = timeAgo(task.created_at);
+    const proj = showProject
+      ? chalk.dim(`[${projectMap.get(task.project_id) || "?"}] `)
+      : "";
 
     console.log(
-      `  ${icon}  ${label.padEnd(44)} ${ranBy.padEnd(20)} ${ago}`,
+      `  ${icon}  ${proj}${label.padEnd(showProject ? 34 : 44)} ${ranBy.padEnd(20)} ${ago}`,
     );
   }
 
