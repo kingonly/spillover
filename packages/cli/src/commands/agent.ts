@@ -25,9 +25,10 @@ export async function agentCommand(_options: { daemon?: boolean }) {
   const sql = getDb();
 
   // Verify GitHub token exists
-  if (!config.get("github_token")) {
+  const ghToken = config.get("github_token") as string;
+  if (!ghToken) {
     console.error(
-      chalk.red("  No GitHub token. Run: spillover login --token ghp_..."),
+      chalk.red("  No GitHub token. Run: spillover login"),
     );
     process.exit(1);
   }
@@ -35,26 +36,9 @@ export async function agentCommand(_options: { daemon?: boolean }) {
   // Report initial usage
   await reportUsage(sql, userId);
 
-  // Get linked repos for this project
-  const repos = await sql`
-    SELECT repo_full_name FROM project_repos WHERE project_id = ${projectId}
-  `;
+  // Track known repos to log new additions
+  let knownRepos = new Set<string>();
 
-  if (repos.length === 0) {
-    console.log(
-      chalk.yellow(
-        "  No repos linked to this project. Add repos from the dashboard first.",
-      ),
-    );
-    await sql.end();
-    process.exit(1);
-  }
-
-  console.log(chalk.dim("  Watching repos:"));
-  for (const r of repos) {
-    console.log(chalk.dim(`    - ${r.repo_full_name}`));
-  }
-  console.log();
   console.log(
     chalk.dim(
       '  Label a GitHub issue with "spillover" to queue it. (Ctrl+C to stop)',
@@ -62,29 +46,84 @@ export async function agentCommand(_options: { daemon?: boolean }) {
   );
   console.log();
 
-  // Also check for legacy DB tasks assigned to us
-  const pollInterval = setInterval(async () => {
+  // Run first poll immediately, then on interval
+  const poll = async () => {
     try {
+      // Re-sync config from dashboard periodically
+      await syncConfigFromApi(ghToken);
+
+      // Re-fetch repos from DB each cycle (picks up newly linked repos)
+      const currentProjectId = config.get("project_id") as string || projectId;
+      const repos = await sql`
+        SELECT repo_full_name FROM project_repos WHERE project_id = ${currentProjectId}
+      `;
+
+      if (repos.length === 0) {
+        return; // no repos yet, wait for next cycle
+      }
+
+      // Log newly discovered repos
+      for (const r of repos) {
+        if (!knownRepos.has(r.repo_full_name)) {
+          console.log(chalk.dim(`  watching: ${r.repo_full_name}`));
+          knownRepos.add(r.repo_full_name);
+        }
+      }
+
       // 1. Check legacy tasks (backward compat)
       await checkLegacyTasks(sql, userId);
 
       // 2. Check GitHub issues labeled "spillover"
-      await checkGitHubIssues(sql, projectId, userId, githubHandle, repos);
+      await checkGitHubIssues(sql, currentProjectId, userId, githubHandle, repos);
 
       // 3. Report usage
       await reportUsage(sql, userId);
     } catch (err: any) {
       console.error(chalk.dim(`  poll error: ${err.message}`));
     }
-  }, 15_000); // 15 seconds to stay within GitHub rate limits
+  };
+
+  await poll();
+  const pollTimer = setInterval(poll, 15_000);
 
   process.on("SIGINT", async () => {
     console.log();
     console.log(chalk.dim("  Shutting down agent..."));
-    clearInterval(pollInterval);
+    clearInterval(pollTimer);
     await sql.end();
     process.exit(0);
   });
+}
+
+const API_BASE = "https://spillover-app.vercel.app";
+let lastConfigSync = 0;
+const CONFIG_SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+async function syncConfigFromApi(token: string) {
+  const now = Date.now();
+  if (now - lastConfigSync < CONFIG_SYNC_INTERVAL) return;
+  lastConfigSync = now;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/cli/config`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+    if (!res.ok) return;
+
+    const data = await res.json();
+    if (data.database_url) config.set("database_url", data.database_url);
+    if (data.projects?.length > 0) {
+      const project = data.projects[0];
+      config.set("project_id", project.id);
+      config.set("project_name", project.name);
+      config.set("user_id", data.github_handle);
+    }
+  } catch {
+    // non-critical
+  }
 }
 
 async function checkLegacyTasks(sql: any, userId: string) {
