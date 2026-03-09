@@ -28,18 +28,17 @@ export default async function SignInPage({
             how it works
           </h2>
           <div className="space-y-4 text-sm">
-            <Step n={1} title="Your team runs the agent">
+            <Step n={1} title="Link repos, label issues">
+              Add the <code className="text-[var(--color-accent)]">spillover</code> label to any GitHub issue.
+            </Step>
+            <Step n={2} title="Agents pick up work">
               <code className="text-[var(--color-accent)]">
                 spillover agent
               </code>
+              <span className="text-[var(--color-text-muted)]"> runs on each teammate&apos;s machine.</span>
             </Step>
-            <Step n={2} title="When you're running low">
-              <code className="text-[var(--color-accent)]">
-                spillover run &quot;fix the auth bug&quot;
-              </code>
-            </Step>
-            <Step n={3} title="Task routes to spare capacity">
-              Results come back as a branch &mdash; review, merge, ship.
+            <Step n={3} title="Results come back as a branch">
+              Review, merge, ship &mdash; all tracked on the issue.
             </Step>
           </div>
         </div>
