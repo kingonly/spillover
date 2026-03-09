@@ -11,6 +11,35 @@ function generateCode(): string {
   return `SPILL-${code}`;
 }
 
+// DELETE /api/projects?id=<projectId> — delete a project (creator only)
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const projectId = req.nextUrl.searchParams.get("id");
+  if (!projectId)
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const githubHandle = (session.user as any).githubHandle || "";
+
+  // Only the creator can delete
+  const project = await sql`
+    SELECT * FROM projects WHERE id = ${projectId} AND created_by = ${githubHandle}
+  `;
+  if (project.length === 0) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Cascade delete related data
+  await sql`DELETE FROM tasks WHERE project_id = ${projectId}`;
+  await sql`DELETE FROM project_repos WHERE project_id = ${projectId}`;
+  await sql`DELETE FROM members WHERE project_id = ${projectId}`;
+  await sql`DELETE FROM projects WHERE id = ${projectId}`;
+
+  return NextResponse.json({ ok: true });
+}
+
 // POST /api/projects — create a new project
 export async function POST(req: NextRequest) {
   const session = await auth();

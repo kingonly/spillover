@@ -11,6 +11,7 @@ import { ProjectSelector } from "./components/project-selector";
 import { InviteButton } from "./components/invite-button";
 import { OnboardingPage } from "./components/onboarding";
 import { ProjectCode } from "./components/project-code";
+import { DeleteProjectButton } from "./components/delete-project-button";
 
 export const dynamic = "force-dynamic";
 
@@ -113,6 +114,9 @@ export default async function Home({
             )}
             <ProjectCode code={project.code} />
             <InviteButton projectId={project.id} />
+            {project.created_by === githubHandle && (
+              <DeleteProjectButton projectId={project.id} projectName={project.name} />
+            )}
           </div>
           <p className="text-xs text-[var(--color-text-muted)]">
             pool your team&apos;s claude code capacity
