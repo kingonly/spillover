@@ -42,14 +42,11 @@ npm i -g spillover
 # Create a project
 spillover init my-team
 
-# Authenticate with GitHub
-spillover login --token ghp_...
+# Authenticate with GitHub (opens browser)
+spillover login
 
 # Start the agent (picks up spillover-labeled issues)
 spillover agent
-
-# Or create an issue from the CLI
-spillover run "fix the auth bug" --repo owner/repo
 ```
 
 ## Dashboard
@@ -58,7 +55,8 @@ Sign in at [spillover-app.vercel.app](https://spillover-app.vercel.app) to:
 
 - See team capacity (who's busy, who has spare tokens)
 - Link GitHub repos to your project
-- View spillover-labeled issues and their status
+- Browse and queue issues (adds the `spillover` label)
+- Track issue status and agent progress
 - Invite teammates via shareable link
 
 ## Architecture

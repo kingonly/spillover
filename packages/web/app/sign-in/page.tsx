@@ -28,17 +28,20 @@ export default async function SignInPage({
             how it works
           </h2>
           <div className="space-y-4 text-sm">
-            <Step n={1} title="Link repos, label issues">
-              Add the <code className="text-[var(--color-accent)]">spillover</code> label to any GitHub issue.
+            <Step n={1} title="Set up your team">
+              <code className="text-[var(--color-accent)]">npm i -g spillover</code>
+              <span className="text-[var(--color-text-muted)]"> then </span>
+              <code className="text-[var(--color-accent)]">spillover init</code>
+              <span className="text-[var(--color-text-muted)]"> and </span>
+              <code className="text-[var(--color-accent)]">spillover login</code>
             </Step>
-            <Step n={2} title="Agents pick up work">
-              <code className="text-[var(--color-accent)]">
-                spillover agent
-              </code>
-              <span className="text-[var(--color-text-muted)]"> runs on each teammate&apos;s machine.</span>
+            <Step n={2} title="Queue issues from the dashboard">
+              Link your repos, browse issues, click queue. Or add the{" "}
+              <code className="text-[var(--color-accent)]">spillover</code> label directly on GitHub.
             </Step>
-            <Step n={3} title="Results come back as a branch">
-              Review, merge, ship. All tracked on the issue.
+            <Step n={3} title="Agents pick up work automatically">
+              <code className="text-[var(--color-accent)]">spillover agent</code>
+              <span className="text-[var(--color-text-muted)]"> runs on each machine. Results come back as a branch on the issue.</span>
             </Step>
           </div>
         </div>

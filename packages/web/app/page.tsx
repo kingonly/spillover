@@ -197,7 +197,7 @@ function OnboardingPage({
           <div className="space-y-4 text-sm">
             <div>
               <p className="text-[var(--color-text-secondary)] mb-2">
-                Install the CLI
+                1. Install the CLI
               </p>
               <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
                 npm i -g spillover
@@ -205,15 +205,16 @@ function OnboardingPage({
             </div>
             <div>
               <p className="text-[var(--color-text-secondary)] mb-2">
-                Create a project
+                2. Create a project and log in
               </p>
-              <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
-                spillover init my-team
-              </code>
+              <div className="bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] space-y-1">
+                <code className="block text-[var(--color-accent)]">spillover init my-team</code>
+                <code className="block text-[var(--color-accent)]">spillover login</code>
+              </div>
             </div>
             <div>
               <p className="text-[var(--color-text-secondary)] mb-2">
-                Or join an existing one
+                3. Or join an existing project
               </p>
               <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
                 spillover join &lt;project-id&gt;
