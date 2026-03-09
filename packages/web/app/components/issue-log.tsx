@@ -62,6 +62,23 @@ export function IssueLog({
       .finally(() => setLoading(false));
   };
 
+  const addIssueOptimistically = (browsed: { number: number; title: string; html_url: string; user: string; labels: { name: string; color: string }[]; created_at: string; repo: string; id: number }) => {
+    setIssues((prev) => [
+      ...prev,
+      {
+        id: browsed.id,
+        number: browsed.number,
+        title: browsed.title,
+        html_url: browsed.html_url,
+        user: browsed.user,
+        labels: [...browsed.labels, { name: "spillover", color: "1f6feb" }],
+        created_at: browsed.created_at,
+        repo: browsed.repo,
+        spillover: null,
+      },
+    ]);
+  };
+
   useEffect(() => {
     loadIssues();
   }, [projectId, refreshKey]);
@@ -174,8 +191,8 @@ export function IssueLog({
           queuedIssueKeys={new Set(
             issues.map((i) => `${i.repo}#${i.number}`),
           )}
-          onQueued={() => {
-            loadIssues();
+          onQueued={(issue) => {
+            addIssueOptimistically(issue);
           }}
           onClose={() => setShowBrowser(false)}
         />
@@ -192,7 +209,7 @@ function IssueBrowser({
 }: {
   projectId: string;
   queuedIssueKeys: Set<string>;
-  onQueued: () => void;
+  onQueued: (issue: BrowseIssue) => void;
   onClose: () => void;
 }) {
   const [issues, setIssues] = useState<BrowseIssue[]>([]);
@@ -221,13 +238,13 @@ function IssueBrowser({
         }),
       });
       if (res.ok) {
-        // Mark it as queued locally
+        // Mark it as queued locally and notify parent
         setIssues((prev) =>
           prev.map((i) =>
             i.id === issue.id ? { ...i, hasSpilloverLabel: true } : i,
           ),
         );
-        onQueued();
+        onQueued(issue);
       }
     } finally {
       setQueuingId(null);
