@@ -88,3 +88,16 @@ export async function createIssue(
     body: JSON.stringify({ title, body, labels }),
   });
 }
+
+export async function createPullRequest(
+  repoFullName: string,
+  head: string,
+  base: string,
+  title: string,
+  body: string,
+) {
+  return githubFetch(`/repos/${repoFullName}/pulls`, {
+    method: "POST",
+    body: JSON.stringify({ title, head, base, body }),
+  });
+}
