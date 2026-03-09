@@ -3,6 +3,7 @@
 interface Task {
   id: string;
   prompt: string;
+  repo_url: string;
   submitted_by: string;
   assigned_to: string | null;
   status: string;
@@ -91,6 +92,11 @@ export function TaskLog({ tasks, members }: TaskLogProps) {
               </p>
               <span className="text-[11px] text-[var(--color-text-muted)]">
                 {getName(task.submitted_by)}
+                {task.repo_url && (
+                  <span className="ml-2 text-[var(--color-text-muted)]">
+                    {task.repo_url.replace(/^https?:\/\/(github\.com\/)?/, "")}
+                  </span>
+                )}
               </span>
             </div>
 

@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
-import { sql } from "@/lib/db";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -26,31 +25,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Protect all other routes
       return isLoggedIn;
     },
-    async signIn({ user, profile }) {
-      try {
-        const githubHandle = (profile?.login as string) || "";
-        const email = user.email || "";
-
-        const projects = await sql`
-          SELECT id FROM projects ORDER BY created_at DESC LIMIT 1
-        `;
-
-        if (projects.length > 0) {
-          const projectId = projects[0].id;
-          const userId = githubHandle || email;
-
-          await sql`
-            INSERT INTO members (project_id, user_id, email, github_handle)
-            VALUES (${projectId}, ${userId}, ${email}, ${githubHandle})
-            ON CONFLICT (project_id, user_id)
-            DO UPDATE SET
-              email = EXCLUDED.email,
-              github_handle = EXCLUDED.github_handle
-          `;
-        }
-      } catch (e) {
-        console.error("signIn callback error:", e);
-      }
+    async signIn() {
+      // Users join projects explicitly via /join/<projectId> links.
+      // No auto-add — signing in alone doesn't grant project access.
       return true;
     },
     async jwt({ token, profile }) {

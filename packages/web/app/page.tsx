@@ -5,86 +5,56 @@ import { StatsRow } from "./components/stats-row";
 import { TeamGrid } from "./components/team-grid";
 import { TaskLog } from "./components/task-log";
 import { UserMenu } from "./components/user-menu";
+import { ProjectSelector } from "./components/project-selector";
+import { InviteButton } from "./components/invite-button";
 
 export const dynamic = "force-dynamic";
 
-async function getData() {
-  const projects = await sql`
-    SELECT * FROM projects ORDER BY created_at DESC LIMIT 1
-  `;
-
-  if (projects.length === 0) {
-    return { project: null, members: [], tasks: [], usageLogs: [] };
-  }
-
-  const project = projects[0];
-
-  const [members, tasks, usageLogs] = await Promise.all([
-    sql`SELECT * FROM members WHERE project_id = ${project.id}` as any as Promise<any[]>,
-    sql`SELECT * FROM tasks WHERE project_id = ${project.id} ORDER BY created_at DESC LIMIT 20` as any as Promise<any[]>,
-    sql`SELECT * FROM usage_logs WHERE date = current_date AND user_id = ANY(
-      SELECT user_id FROM members WHERE project_id = ${project.id}
-    )` as any as Promise<any[]>,
-  ]);
-
-  return { project, members, tasks, usageLogs };
+async function getUserProjects(githubHandle: string) {
+  return sql`
+    SELECT p.* FROM projects p
+    JOIN members m ON m.project_id = p.id
+    WHERE m.github_handle = ${githubHandle}
+       OR m.user_id = ${githubHandle}
+    ORDER BY p.created_at DESC
+  ` as any as Promise<any[]>;
 }
 
-export default async function Home() {
+async function getProjectData(projectId: string) {
+  const [members, tasks, usageLogs] = await Promise.all([
+    sql`SELECT * FROM members WHERE project_id = ${projectId}` as any as Promise<any[]>,
+    sql`SELECT * FROM tasks WHERE project_id = ${projectId} ORDER BY created_at DESC LIMIT 20` as any as Promise<any[]>,
+    sql`SELECT * FROM usage_logs WHERE date = current_date AND user_id = ANY(
+      SELECT user_id FROM members WHERE project_id = ${projectId}
+    )` as any as Promise<any[]>,
+  ]);
+  return { members, tasks, usageLogs };
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/sign-in");
 
-  const { project, members, tasks, usageLogs } = await getData();
-
   const user = session.user as any;
+  const githubHandle = user.githubHandle || user.email || "";
 
-  if (!project) {
-    return (
-      <main className="flex items-center justify-center min-h-screen px-8">
-        <div className="max-w-lg w-full">
-          <div className="text-4xl mb-3 text-shimmer font-bold tracking-tight">spillover</div>
-          <p className="text-[var(--color-text-secondary)] text-sm mb-10">
-            Pool your team&apos;s Claude Code capacity. No tokens left behind.
-          </p>
+  const projects = await getUserProjects(githubHandle);
 
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-6 mb-6">
-            <h2 className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-4">get started</h2>
-            <div className="space-y-4 text-sm">
-              <div>
-                <p className="text-[var(--color-text-secondary)] mb-2">1. Install the CLI</p>
-                <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
-                  npm i -g spillover
-                </code>
-              </div>
-              <div>
-                <p className="text-[var(--color-text-secondary)] mb-2">2. Create a project</p>
-                <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
-                  spillover init my-team
-                </code>
-              </div>
-              <div>
-                <p className="text-[var(--color-text-secondary)] mb-2">3. Share with your team and start the agent</p>
-                <div className="bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] space-y-1">
-                  <code className="block text-[var(--color-accent)]">spillover join &lt;project-id&gt;</code>
-                  <code className="block text-[var(--color-accent)]">spillover agent</code>
-                </div>
-              </div>
-              <div>
-                <p className="text-[var(--color-text-secondary)] mb-2">4. Submit tasks — they auto-route to whoever has spare capacity</p>
-                <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
-                  spillover run &quot;fix the auth bug&quot; --repo github.com/team/app
-                </code>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-[var(--color-text-muted)] text-xs">
-            This dashboard will show your team&apos;s usage and tasks once a project is created.
-          </p>
-        </div>
-      </main>
-    );
+  if (projects.length === 0) {
+    return <OnboardingPage user={user} signOutFn={async () => {
+      "use server";
+      await signOut({ redirectTo: "/sign-in" });
+    }} />;
   }
+
+  const params = await searchParams;
+  const selectedId = params.project || projects[0].id;
+  const project = projects.find((p: any) => p.id === selectedId) || projects[0];
+  const { members, tasks, usageLogs } = await getProjectData(project.id);
 
   const usageMap = Object.fromEntries(usageLogs.map((u: any) => [u.user_id, u]));
 
@@ -118,9 +88,17 @@ export default async function Home() {
               spillover
             </div>
             <div className="h-5 w-px bg-[var(--color-border)]" />
-            <span className="text-sm text-[var(--color-text-secondary)]">
-              {project.name}
-            </span>
+            {projects.length > 1 ? (
+              <ProjectSelector
+                projects={projects.map((p: any) => ({ id: p.id, name: p.name }))}
+                currentProjectId={project.id}
+              />
+            ) : (
+              <span className="text-sm text-[var(--color-text-secondary)]">
+                {project.name}
+              </span>
+            )}
+            <InviteButton projectId={project.id} />
           </div>
           <p className="text-xs text-[var(--color-text-muted)]">
             pool your team&apos;s claude code capacity
@@ -149,6 +127,79 @@ export default async function Home() {
         <SectionTitle>activity</SectionTitle>
         <TaskLog tasks={tasks} members={members} />
       </section>
+    </main>
+  );
+}
+
+function OnboardingPage({
+  user,
+  signOutFn,
+}: {
+  user: any;
+  signOutFn: () => Promise<void>;
+}) {
+  return (
+    <main className="flex items-center justify-center min-h-screen px-8">
+      <div className="max-w-lg w-full">
+        <div className="flex items-center justify-between mb-10">
+          <div>
+            <div className="text-4xl mb-1 text-shimmer font-bold tracking-tight">
+              spillover
+            </div>
+            <p className="text-[var(--color-text-muted)] text-xs">
+              signed in as {user.githubHandle || user.email}
+            </p>
+          </div>
+          <form action={signOutFn}>
+            <button
+              type="submit"
+              className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer"
+            >
+              sign out
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-6 mb-6">
+          <h2 className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-4">
+            join a project
+          </h2>
+          <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+            Ask your team lead for an invite link, or create a new project from
+            the CLI:
+          </p>
+          <div className="space-y-4 text-sm">
+            <div>
+              <p className="text-[var(--color-text-secondary)] mb-2">
+                Install the CLI
+              </p>
+              <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
+                npm i -g spillover
+              </code>
+            </div>
+            <div>
+              <p className="text-[var(--color-text-secondary)] mb-2">
+                Create a project
+              </p>
+              <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
+                spillover init my-team
+              </code>
+            </div>
+            <div>
+              <p className="text-[var(--color-text-secondary)] mb-2">
+                Or join an existing one
+              </p>
+              <code className="block bg-[var(--color-bg)] px-4 py-2.5 rounded border border-[var(--color-border)] text-[var(--color-accent)]">
+                spillover join &lt;project-id&gt;
+              </code>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-[var(--color-text-muted)] text-xs">
+          Your dashboard will appear here once you&apos;re part of a project.
+        </p>
+      </div>
     </main>
   );
 }

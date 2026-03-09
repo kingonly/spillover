@@ -49,8 +49,11 @@ export function TeamGrid({ members, usageMap }: TeamGridProps) {
     );
   }
 
-  // Sort: highest usage first
+  // Sort: online (have usage data) first, then by highest usage
   const sorted = [...members].sort((a, b) => {
+    const aOnline = !!usageMap[a.user_id];
+    const bOnline = !!usageMap[b.user_id];
+    if (aOnline !== bOnline) return bOnline ? 1 : -1;
     const aP = Number(usageMap[a.user_id]?.usage_percent || 0);
     const bP = Number(usageMap[b.user_id]?.usage_percent || 0);
     return bP - aP;
@@ -60,9 +63,35 @@ export function TeamGrid({ members, usageMap }: TeamGridProps) {
     <div className="space-y-2">
       {sorted.map((member) => {
         const usage = usageMap[member.user_id];
+        const isOnline = !!usage;
         const percent = Number(usage?.usage_percent || 0);
         const name =
           member.github_handle || member.email || member.user_id.slice(0, 8);
+
+        if (!isOnline) {
+          return (
+            <div
+              key={member.user_id}
+              className="group flex items-center gap-5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-5 py-4 opacity-50"
+            >
+              <div className="w-28 shrink-0">
+                <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+                  {name}
+                </span>
+              </div>
+              <div className="flex-1 relative">
+                <div className="h-2 bg-[var(--color-border)] rounded-full" />
+              </div>
+              <div className="w-12 text-right text-sm text-[var(--color-text-muted)]">
+                —
+              </div>
+              <div className="w-14 text-center text-[10px] uppercase tracking-wider font-medium py-0.5 rounded-full text-[var(--color-text-muted)] bg-[color-mix(in_srgb,var(--color-text-muted)_10%,transparent)]">
+                offline
+              </div>
+            </div>
+          );
+        }
+
         const color = getBarColor(percent);
         const glow = getBarGlow(percent);
         const status = getStatusTag(percent);

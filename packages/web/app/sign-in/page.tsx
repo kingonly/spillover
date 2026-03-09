@@ -1,38 +1,106 @@
 import { signIn } from "@/lib/auth";
 
-export default function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}) {
+  const params = await searchParams;
+  const callbackUrl = params.callbackUrl || "/";
+
   return (
-    <main className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <div className="text-5xl mb-2 text-shimmer font-bold tracking-tight">
+    <main className="flex items-center justify-center min-h-screen px-6">
+      <div className="max-w-md w-full">
+        {/* Logo */}
+        <div className="text-5xl mb-3 text-shimmer font-bold tracking-tight text-center">
           spillover
         </div>
-        <p className="text-[var(--color-text-muted)] text-xs mb-10">
-          pool your team&apos;s claude code capacity
+
+        {/* Tagline */}
+        <p className="text-[var(--color-text-secondary)] text-sm text-center mb-12 leading-relaxed max-w-sm mx-auto">
+          When you hit your Claude Code token limit, tasks automatically route
+          to teammates with spare capacity.
         </p>
 
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-8 w-80">
-          <p className="text-sm text-[var(--color-text-secondary)] mb-6">
-            Sign in to access your dashboard
-          </p>
+        {/* How it works */}
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-6 mb-6">
+          <h2 className="text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--color-text-muted)] mb-5">
+            how it works
+          </h2>
+          <div className="space-y-4 text-sm">
+            <Step n={1} title="Your team runs the agent">
+              <code className="text-[var(--color-accent)]">
+                spillover agent
+              </code>
+            </Step>
+            <Step n={2} title="When you're running low">
+              <code className="text-[var(--color-accent)]">
+                spillover run &quot;fix the auth bug&quot;
+              </code>
+            </Step>
+            <Step n={3} title="Task routes to spare capacity">
+              Results come back as a branch &mdash; review, merge, ship.
+            </Step>
+          </div>
+        </div>
 
+        {/* Sign in — desktop only */}
+        <div className="hidden md:block">
           <form
             action={async () => {
               "use server";
-              await signIn("github", { redirectTo: "/" });
+              await signIn("github", { redirectTo: callbackUrl });
             }}
           >
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-3 bg-[var(--color-surface-hover)] border border-[var(--color-border)] hover:border-[var(--color-border-hover)] text-[var(--color-text-primary)] rounded-lg px-5 py-3 text-sm font-medium transition-colors cursor-pointer hover:bg-[var(--color-border)]"
+              className="w-full flex items-center justify-center gap-3 bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-border-hover)] text-[var(--color-text-primary)] rounded-lg px-5 py-3.5 text-sm font-medium transition-colors cursor-pointer hover:bg-[var(--color-surface-hover)]"
             >
               <GitHubIcon />
               Continue with GitHub
             </button>
           </form>
+
+          <p className="text-[var(--color-text-muted)] text-[11px] text-center mt-4">
+            Requires the Claude Code CLI on your machine.
+          </p>
+        </div>
+
+        {/* Mobile notice */}
+        <div className="block md:hidden">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-5 py-4 text-center">
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              spillover is a desktop developer tool.
+            </p>
+            <p className="text-xs text-[var(--color-text-muted)] mt-2">
+              Sign in from your computer to access the dashboard.
+            </p>
+          </div>
         </div>
       </div>
     </main>
+  );
+}
+
+function Step({
+  n,
+  title,
+  children,
+}: {
+  n: number;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex gap-3">
+      <div className="w-5 h-5 rounded-full bg-[var(--color-border)] flex items-center justify-center text-[10px] text-[var(--color-text-muted)] shrink-0 mt-0.5">
+        {n}
+      </div>
+      <div>
+        <p className="text-[var(--color-text-secondary)] mb-1">{title}</p>
+        <div className="text-xs">{children}</div>
+      </div>
+    </div>
   );
 }
 
