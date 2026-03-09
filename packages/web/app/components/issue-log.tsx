@@ -42,9 +42,11 @@ interface Member {
 export function IssueLog({
   projectId,
   members,
+  refreshKey,
 }: {
   projectId: string;
   members: Member[];
+  refreshKey?: number;
 }) {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +64,7 @@ export function IssueLog({
 
   useEffect(() => {
     loadIssues();
-  }, [projectId]);
+  }, [projectId, refreshKey]);
 
   const getName = (id: string) => {
     const m = members.find(

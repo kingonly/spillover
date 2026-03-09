@@ -17,9 +17,11 @@ interface GitHubRepo {
 export function RepoPicker({
   projectId,
   initialRepos,
+  onReposChange,
 }: {
   projectId: string;
   initialRepos: Repo[];
+  onReposChange?: (count: number) => void;
 }) {
   const [linkedRepos, setLinkedRepos] = useState(initialRepos);
   const [allRepos, setAllRepos] = useState<GitHubRepo[]>([]);
@@ -46,7 +48,11 @@ export function RepoPicker({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectId, repoFullName: fullName }),
     });
-    setLinkedRepos((prev) => [...prev, { repo_full_name: fullName }]);
+    setLinkedRepos((prev) => {
+      const next = [...prev, { repo_full_name: fullName }];
+      onReposChange?.(next.length);
+      return next;
+    });
   };
 
   const removeRepo = async (fullName: string) => {
@@ -55,9 +61,11 @@ export function RepoPicker({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectId, repoFullName: fullName }),
     });
-    setLinkedRepos((prev) =>
-      prev.filter((r) => r.repo_full_name !== fullName),
-    );
+    setLinkedRepos((prev) => {
+      const next = prev.filter((r) => r.repo_full_name !== fullName);
+      onReposChange?.(next.length);
+      return next;
+    });
   };
 
   const filteredRepos = allRepos.filter(

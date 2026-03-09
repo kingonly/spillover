@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 import { StatsRow } from "./components/stats-row";
 import { TeamGrid } from "./components/team-grid";
 import { TaskLog } from "./components/task-log";
-import { IssueLog } from "./components/issue-log";
-import { RepoPicker } from "./components/repo-picker";
+import { ReposAndIssues } from "./components/repos-and-issues";
 import { UserMenu } from "./components/user-menu";
 import { ProjectSelector } from "./components/project-selector";
 import { InviteButton } from "./components/invite-button";
@@ -91,8 +90,6 @@ export default async function Home({
     await signOut({ redirectTo: "/sign-in" });
   }
 
-  const hasRepos = repos.length > 0;
-
   return (
     <main className="max-w-6xl mx-auto px-8 py-16">
       <div className="flex items-start justify-between mb-16">
@@ -141,24 +138,11 @@ export default async function Home({
         <TeamGrid members={members} usageMap={usageMap} />
       </section>
 
-      <section className="mb-16">
-        <SectionTitle>repositories</SectionTitle>
-        <RepoPicker
-          projectId={project.id}
-          initialRepos={repos.map((r: any) => ({ repo_full_name: r.repo_full_name }))}
-        />
-      </section>
-
-      <section className="mb-16">
-        <SectionTitle>issues</SectionTitle>
-        {hasRepos ? (
-          <IssueLog projectId={project.id} members={members} />
-        ) : (
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Add a repository above to see spillover-labeled issues.
-          </p>
-        )}
-      </section>
+      <ReposAndIssues
+        projectId={project.id}
+        initialRepos={repos.map((r: any) => ({ repo_full_name: r.repo_full_name }))}
+        members={members}
+      />
 
       {tasks.length > 0 && (
         <section>
