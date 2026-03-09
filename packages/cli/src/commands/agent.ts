@@ -256,9 +256,13 @@ async function executeIssueTask(
     mkdirSync(workDir, { recursive: true });
 
     spinner.text = "Cloning repository...";
+    const ghToken = config.get("github_token") as string;
+    const cloneUrl = ghToken
+      ? `https://x-access-token:${ghToken}@github.com/${task.repoName}.git`
+      : `https://github.com/${task.repoName}.git`;
     execSync(
-      `git clone --depth 1 --branch ${task.branch} https://github.com/${task.repoName}.git .`,
-      { cwd: workDir, stdio: "pipe" },
+      `git clone --depth 1 --branch ${task.branch} ${cloneUrl} .`,
+      { cwd: workDir, stdio: "pipe", timeout: 60_000 },
     );
 
     const resultBranch = `spillover/issue-${task.issueNumber}`;
@@ -271,18 +275,21 @@ async function executeIssueTask(
     const prompt = `GitHub Issue #${task.issueNumber}: ${task.title}\n\n${task.body}`;
 
     spinner.text = `Running Claude Code on issue #${task.issueNumber}...`;
+    spinner.stop();
+    console.log(chalk.dim(`  running claude on ${shortId}...`));
     const result = execSync(
       `claude -p ${JSON.stringify(prompt)} --output-format json`,
       {
         cwd: workDir,
         encoding: "utf-8",
         maxBuffer: 50 * 1024 * 1024,
-        stdio: ["pipe", "pipe", "pipe"],
+        timeout: 10 * 60 * 1000, // 10 minutes
+        stdio: ["pipe", "pipe", "inherit"],
       },
     );
 
     // Commit and push
-    spinner.text = "Pushing results...";
+    console.log(chalk.dim(`  pushing results...`));
     try {
       execSync(
         `git add -A && git commit -m "spillover: resolve issue #${task.issueNumber}"`,
@@ -291,6 +298,7 @@ async function executeIssueTask(
       execSync(`git push origin ${resultBranch}`, {
         cwd: workDir,
         stdio: "pipe",
+        timeout: 60_000,
       });
     } catch {
       // no changes to commit
@@ -326,9 +334,9 @@ async function executeIssueTask(
       // non-critical
     }
 
-    spinner.succeed(chalk.green(`${shortId} complete \u2192 ${resultBranch}`));
+    console.log(chalk.green(`  ${shortId} complete -> ${resultBranch}`));
   } catch (err: any) {
-    spinner.fail(chalk.red(`${shortId} failed`));
+    console.log(chalk.red(`  ${shortId} failed`));
     console.error(chalk.dim(err.message));
 
     await sql`
