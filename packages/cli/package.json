@@ -1,6 +1,6 @@
 {
   "name": "spillover",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Pool your team's Claude Code capacity. No tokens left behind.",
   "type": "module",
   "bin": {
