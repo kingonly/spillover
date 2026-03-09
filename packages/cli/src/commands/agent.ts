@@ -1,5 +1,4 @@
 import chalk from "chalk";
-import ora from "ora";
 import { execSync } from "child_process";
 import { mkdirSync } from "fs";
 import { join } from "path";
@@ -164,8 +163,9 @@ async function checkGitHubIssues(
     let issues: any[];
     try {
       issues = await listSpilloverIssues(repoName);
-    } catch {
-      continue; // skip repos we can't access
+    } catch (err: any) {
+      console.log(chalk.dim(`  skipping ${repoName}: ${err.message?.slice(0, 80)}`));
+      continue;
     }
 
     for (const issue of issues) {
@@ -189,7 +189,8 @@ async function checkGitHubIssues(
       // Check capacity
       const usagePercent = await getUsagePercent();
       if (usagePercent > 70) {
-        continue; // too busy
+        console.log(chalk.dim(`  skipping issue #${issue.number}: usage at ${Math.round(usagePercent)}% (>70%)`));
+        continue;
       }
 
       // Claim it
@@ -244,7 +245,6 @@ async function executeIssueTask(
     branch: string;
   },
 ) {
-  const spinner = ora("Setting up workspace...").start();
   const shortId = `${task.repoName.split("/").pop()}#${task.issueNumber}`;
 
   try {
@@ -254,8 +254,9 @@ async function executeIssueTask(
       `issue-${task.repoName.replace("/", "-")}-${task.issueNumber}`,
     );
     mkdirSync(workDir, { recursive: true });
+    console.log(chalk.dim(`  workdir: ${workDir}`));
 
-    spinner.text = "Cloning repository...";
+    console.log(chalk.dim(`  cloning ${task.repoName} (branch: ${task.branch})...`));
     const ghToken = config.get("github_token") as string;
     const cloneUrl = ghToken
       ? `https://x-access-token:${ghToken}@github.com/${task.repoName}.git`
@@ -264,6 +265,8 @@ async function executeIssueTask(
       `git clone --depth 1 --branch ${task.branch} ${cloneUrl} .`,
       { cwd: workDir, stdio: "pipe", timeout: 60_000 },
     );
+
+    console.log(chalk.dim(`  cloned successfully`));
 
     const resultBranch = `spillover/issue-${task.issueNumber}`;
     execSync(`git checkout -b ${resultBranch}`, {
@@ -359,21 +362,22 @@ async function executeIssueTask(
 }
 
 async function executeTask(sql: any, task: any) {
-  const spinner = ora("Setting up workspace...").start();
+  const shortId = task.id.slice(0, 8);
 
   try {
-    const workDir = join(tmpdir(), "spillover", task.id.slice(0, 8));
+    const workDir = join(tmpdir(), "spillover", shortId);
     mkdirSync(workDir, { recursive: true });
+    console.log(chalk.dim(`  workdir: ${workDir}`));
 
     if (task.repo_url) {
-      spinner.text = "Cloning repository...";
+      console.log(chalk.dim(`  cloning ${task.repo_url}...`));
       execSync(
         `git clone --depth 1 --branch ${task.branch || "main"} ${task.repo_url} .`,
-        { cwd: workDir, stdio: "pipe" },
+        { cwd: workDir, stdio: "pipe", timeout: 60_000 },
       );
     }
 
-    const resultBranch = `spillover/task-${task.id.slice(0, 8)}`;
+    const resultBranch = `spillover/task-${shortId}`;
     if (task.repo_url) {
       execSync(`git checkout -b ${resultBranch}`, {
         cwd: workDir,
@@ -381,19 +385,20 @@ async function executeTask(sql: any, task: any) {
       });
     }
 
-    spinner.text = "Running prompt with Claude Code...";
+    console.log(chalk.dim(`  running claude on task #${shortId}...`));
     const result = execSync(
       `claude -p ${JSON.stringify(task.prompt)} --output-format json`,
       {
         cwd: workDir,
         encoding: "utf-8",
         maxBuffer: 50 * 1024 * 1024,
-        stdio: ["pipe", "pipe", "pipe"],
+        timeout: 10 * 60 * 1000,
+        stdio: ["pipe", "pipe", "inherit"],
       },
     );
 
     if (task.repo_url) {
-      spinner.text = "Pushing results...";
+      console.log(chalk.dim(`  pushing results...`));
       try {
         execSync('git add -A && git commit -m "spillover: task result"', {
           cwd: workDir,
@@ -402,6 +407,7 @@ async function executeTask(sql: any, task: any) {
         execSync(`git push origin ${resultBranch}`, {
           cwd: workDir,
           stdio: "pipe",
+          timeout: 60_000,
         });
       } catch {
         // no changes
@@ -423,11 +429,9 @@ async function executeTask(sql: any, task: any) {
       WHERE id = ${task.id}
     `;
 
-    spinner.succeed(
-      chalk.green(`Task #${task.id.slice(0, 8)} complete \u2192 ${resultBranch}`),
-    );
+    console.log(chalk.green(`  task #${shortId} complete -> ${resultBranch}`));
   } catch (err: any) {
-    spinner.fail(chalk.red(`Task #${task.id.slice(0, 8)} failed`));
+    console.log(chalk.red(`  task #${shortId} failed`));
     console.error(chalk.dim(err.message));
 
     await sql`

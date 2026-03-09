@@ -19,7 +19,7 @@ ${chalk.cyan("  💧 spillover")} ${chalk.dim("— pool your team's Claude Code 
 program
   .name("spillover")
   .description(banner)
-  .version("0.2.5");
+  .version("0.2.6");
 
 program
   .command("init")
