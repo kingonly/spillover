@@ -38,7 +38,7 @@ export default async function SignInPage({
               <span className="text-[var(--color-text-muted)]"> runs on each teammate&apos;s machine.</span>
             </Step>
             <Step n={3} title="Results come back as a branch">
-              Review, merge, ship &mdash; all tracked on the issue.
+              Review, merge, ship. All tracked on the issue.
             </Step>
           </div>
         </div>
