@@ -4,8 +4,6 @@ Pool your team's Claude Code capacity. No tokens left behind.
 
 **Dashboard**: [spillover-app.vercel.app](https://spillover-app.vercel.app)
 
-![Dashboard](assets/dashboard.png)
-
 ## What it does
 
 Your team pays for Claude Code subscriptions. Some devs hit their limits while others barely use theirs. Spillover automatically routes tasks to teammates with spare capacity — using GitHub issues as the task queue.
