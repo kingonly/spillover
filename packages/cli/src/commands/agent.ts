@@ -97,7 +97,7 @@ export async function agentCommand(_options: { daemon?: boolean }) {
 
 const API_BASE = "https://spillover-app.vercel.app";
 let lastConfigSync = 0;
-const CONFIG_SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const CONFIG_SYNC_INTERVAL = 30_000; // 30 seconds
 
 async function syncConfigFromApi(token: string) {
   const now = Date.now();
