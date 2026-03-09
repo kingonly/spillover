@@ -35,11 +35,12 @@ export default async function SignInPage({
               Add your GitHub repos. Browse issues and click queue.
             </Step>
             <Step n={3} title="Agents pick up work">
-              <code className="text-[var(--color-accent)]">npm i -g spillover</code>
-              <span className="text-[var(--color-text-muted)]"> then </span>
-              <code className="text-[var(--color-accent)]">spillover login</code>
-              <span className="text-[var(--color-text-muted)]"> and </span>
-              <code className="text-[var(--color-accent)]">spillover agent</code>
+              <div className="bg-[var(--color-bg)] rounded px-3 py-2 mt-1.5 font-mono text-[11px] space-y-0.5">
+                <div><span className="text-[var(--color-text-muted)]">$</span> <span className="text-[var(--color-accent)]">npm i -g spillover</span></div>
+                <div><span className="text-[var(--color-text-muted)]">$</span> <span className="text-[var(--color-accent)]">spillover login</span></div>
+                <div><span className="text-[var(--color-text-muted)]">$</span> <span className="text-[var(--color-accent)]">spillover agent</span></div>
+              </div>
+              <p className="text-[var(--color-text-muted)] mt-1.5">Each teammate runs the agent. It watches for queued issues and uses their idle Claude Code capacity.</p>
             </Step>
           </div>
         </div>
