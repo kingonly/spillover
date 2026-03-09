@@ -65,3 +65,40 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(enriched);
 }
+
+// POST /api/github/issues — add "spillover" label to an issue
+export async function POST(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const accessToken = (session as any).accessToken;
+  if (!accessToken) {
+    return NextResponse.json({ error: "No GitHub token" }, { status: 403 });
+  }
+
+  const { repo, issueNumber } = await req.json();
+  if (!repo || !issueNumber) {
+    return NextResponse.json({ error: "repo and issueNumber required" }, { status: 400 });
+  }
+
+  // Add the "spillover" label
+  const res = await fetch(
+    `https://api.github.com/repos/${repo}/issues/${issueNumber}/labels`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      body: JSON.stringify({ labels: ["spillover"] }),
+    },
+  );
+
+  if (!res.ok) {
+    const body = await res.text();
+    return NextResponse.json({ error: body }, { status: res.status });
+  }
+
+  return NextResponse.json({ ok: true });
+}

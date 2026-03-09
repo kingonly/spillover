@@ -21,6 +21,18 @@ interface Issue {
   spillover: SpilloverMeta | null;
 }
 
+interface BrowseIssue {
+  id: number;
+  number: number;
+  title: string;
+  html_url: string;
+  user: string;
+  labels: { name: string; color: string }[];
+  created_at: string;
+  repo: string;
+  hasSpilloverLabel: boolean;
+}
+
 interface Member {
   user_id: string;
   github_handle: string;
@@ -36,14 +48,20 @@ export function IssueLog({
 }) {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showBrowser, setShowBrowser] = useState(false);
 
-  useEffect(() => {
+  const loadIssues = () => {
+    setLoading(true);
     fetch(`/api/github/issues?project=${projectId}`)
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setIssues(data);
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadIssues();
   }, [projectId]);
 
   const getName = (id: string) => {
@@ -61,92 +79,227 @@ export function IssueLog({
     );
   }
 
-  if (issues.length === 0) {
-    return (
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-6 text-center">
-        <p className="text-sm text-[var(--color-text-secondary)] mb-2">
-          No spillover-labeled issues found.
-        </p>
-        <p className="text-xs text-[var(--color-text-muted)]">
-          Add the <code className="text-[var(--color-accent)]">spillover</code>{" "}
-          label to a GitHub issue to queue it for your team.
-        </p>
-      </div>
-    );
-  }
+  return (
+    <div>
+      {/* Queued/active issues */}
+      {issues.length > 0 ? (
+        <div className="border border-[var(--color-border)] rounded-lg overflow-hidden mb-4">
+          <div className="grid grid-cols-[1fr_140px_100px_80px_50px] gap-4 px-5 py-2.5 bg-[var(--color-surface)] border-b border-[var(--color-border)] text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+            <div>issue</div>
+            <div>repo</div>
+            <div>assignee</div>
+            <div className="text-right">tokens</div>
+            <div className="text-center">status</div>
+          </div>
+
+          {issues.map((issue, i) => {
+            const s = issue.spillover;
+            const statusDot = s
+              ? statusConfig[s.status] || statusConfig.queued
+              : { dot: "bg-[var(--color-text-muted)]", title: "open" };
+
+            return (
+              <div
+                key={`${issue.repo}#${issue.number}`}
+                className={`grid grid-cols-[1fr_140px_100px_80px_50px] gap-4 px-5 py-3 items-center hover:bg-[var(--color-surface-hover)] transition-colors ${
+                  i < issues.length - 1
+                    ? "border-b border-[var(--color-border)]"
+                    : ""
+                }`}
+              >
+                <div className="min-w-0">
+                  <a
+                    href={issue.html_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-[var(--color-text-primary)] hover:text-[var(--color-accent)] truncate block transition-colors"
+                  >
+                    {issue.title}
+                  </a>
+                  <span className="text-[11px] text-[var(--color-text-muted)]">
+                    #{issue.number} by {issue.user} · {timeAgo(issue.created_at)}
+                  </span>
+                </div>
+                <div className="text-[11px] text-[var(--color-text-secondary)] truncate">
+                  {issue.repo.split("/").pop()}
+                </div>
+                <div className="text-[11px]">
+                  {s?.assigned_to ? (
+                    <span className="text-[var(--color-accent)]">
+                      {getName(s.assigned_to)}
+                    </span>
+                  ) : (
+                    <span className="text-[var(--color-text-muted)]">
+                      waiting
+                    </span>
+                  )}
+                </div>
+                <div className="text-right text-[11px] tabular-nums text-[var(--color-text-secondary)]">
+                  {s?.tokens_used ? formatTokens(Number(s.tokens_used)) : "—"}
+                </div>
+                <div className="flex justify-center">
+                  <div
+                    className={`w-2 h-2 rounded-full ${statusDot.dot}`}
+                    title={statusDot.title}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-6 text-center mb-4">
+          <p className="text-sm text-[var(--color-text-secondary)] mb-2">
+            No spillover issues queued yet.
+          </p>
+          <p className="text-xs text-[var(--color-text-muted)]">
+            Select an issue below to queue it for your team.
+          </p>
+        </div>
+      )}
+
+      {/* Browse & queue button */}
+      {!showBrowser ? (
+        <button
+          onClick={() => setShowBrowser(true)}
+          className="text-xs text-[var(--color-accent)] hover:underline cursor-pointer"
+        >
+          + queue an issue
+        </button>
+      ) : (
+        <IssueBrowser
+          projectId={projectId}
+          queuedIssueKeys={new Set(
+            issues.map((i) => `${i.repo}#${i.number}`),
+          )}
+          onQueued={() => {
+            loadIssues();
+          }}
+          onClose={() => setShowBrowser(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function IssueBrowser({
+  projectId,
+  queuedIssueKeys,
+  onQueued,
+  onClose,
+}: {
+  projectId: string;
+  queuedIssueKeys: Set<string>;
+  onQueued: () => void;
+  onClose: () => void;
+}) {
+  const [issues, setIssues] = useState<BrowseIssue[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [queuingId, setQueuingId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    fetch(`/api/github/issues/browse?project=${projectId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setIssues(data);
+      })
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  const queueIssue = async (issue: BrowseIssue) => {
+    setQueuingId(issue.id);
+    try {
+      const res = await fetch("/api/github/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repo: issue.repo,
+          issueNumber: issue.number,
+        }),
+      });
+      if (res.ok) {
+        // Mark it as queued locally
+        setIssues((prev) =>
+          prev.map((i) =>
+            i.id === issue.id ? { ...i, hasSpilloverLabel: true } : i,
+          ),
+        );
+        onQueued();
+      }
+    } finally {
+      setQueuingId(null);
+    }
+  };
+
+  const filtered = issues.filter(
+    (i) =>
+      !i.hasSpilloverLabel &&
+      !queuedIssueKeys.has(`${i.repo}#${i.number}`) &&
+      (search === "" ||
+        i.title.toLowerCase().includes(search.toLowerCase()) ||
+        `#${i.number}`.includes(search)),
+  );
 
   return (
-    <div className="border border-[var(--color-border)] rounded-lg overflow-hidden">
-      {/* Header */}
-      <div className="grid grid-cols-[1fr_140px_100px_80px_50px] gap-4 px-5 py-2.5 bg-[var(--color-surface)] border-b border-[var(--color-border)] text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
-        <div>issue</div>
-        <div>repo</div>
-        <div>assignee</div>
-        <div className="text-right">tokens</div>
-        <div className="text-center">status</div>
+    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--color-text-muted)]">
+          select an issue to queue
+        </span>
+        <button
+          onClick={onClose}
+          className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] cursor-pointer"
+        >
+          close
+        </button>
       </div>
 
-      {issues.map((issue, i) => {
-        const s = issue.spillover;
-        const statusDot = s
-          ? statusConfig[s.status] || statusConfig.queued
-          : { dot: "bg-[var(--color-text-muted)]", title: "open" };
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="search issues..."
+        className="w-full bg-[var(--color-bg)] border border-[var(--color-border)] rounded px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)] mb-3"
+        autoFocus
+      />
 
-        return (
-          <div
-            key={`${issue.repo}#${issue.number}`}
-            className={`grid grid-cols-[1fr_140px_100px_80px_50px] gap-4 px-5 py-3 items-center hover:bg-[var(--color-surface-hover)] transition-colors ${
-              i < issues.length - 1
-                ? "border-b border-[var(--color-border)]"
-                : ""
-            }`}
-          >
-            {/* Issue title */}
-            <div className="min-w-0">
-              <a
-                href={issue.html_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-[var(--color-text-primary)] hover:text-[var(--color-accent)] truncate block transition-colors"
-              >
-                {issue.title}
-              </a>
-              <span className="text-[11px] text-[var(--color-text-muted)]">
-                #{issue.number} by {issue.user} · {timeAgo(issue.created_at)}
-              </span>
-            </div>
-
-            {/* Repo */}
-            <div className="text-[11px] text-[var(--color-text-secondary)] truncate">
-              {issue.repo.split("/").pop()}
-            </div>
-
-            {/* Assignee */}
-            <div className="text-[11px]">
-              {s?.assigned_to ? (
-                <span className="text-[var(--color-accent)]">
-                  {getName(s.assigned_to)}
+      {loading ? (
+        <p className="text-xs text-[var(--color-text-muted)] py-2">
+          Loading issues...
+        </p>
+      ) : filtered.length === 0 ? (
+        <p className="text-xs text-[var(--color-text-muted)] py-2">
+          {search
+            ? "No matching issues"
+            : "All open issues are already queued"}
+        </p>
+      ) : (
+        <div className="max-h-64 overflow-y-auto space-y-1">
+          {filtered.slice(0, 20).map((issue) => (
+            <div
+              key={issue.id}
+              className="flex items-center justify-between px-3 py-2.5 rounded hover:bg-[var(--color-surface-hover)] transition-colors"
+            >
+              <div className="min-w-0 mr-3">
+                <p className="text-sm text-[var(--color-text-primary)] truncate">
+                  {issue.title}
+                </p>
+                <span className="text-[11px] text-[var(--color-text-muted)]">
+                  {issue.repo.split("/").pop()}#{issue.number} · {issue.user}
                 </span>
-              ) : (
-                <span className="text-[var(--color-text-muted)]">—</span>
-              )}
+              </div>
+              <button
+                onClick={() => queueIssue(issue)}
+                disabled={queuingId === issue.id}
+                className="shrink-0 text-xs text-[var(--color-accent)] border border-[var(--color-accent)] rounded px-3 py-1 hover:bg-[color-mix(in_srgb,var(--color-accent)_10%,transparent)] cursor-pointer transition-colors disabled:opacity-50"
+              >
+                {queuingId === issue.id ? "..." : "queue"}
+              </button>
             </div>
-
-            {/* Tokens */}
-            <div className="text-right text-[11px] tabular-nums text-[var(--color-text-secondary)]">
-              {s?.tokens_used ? formatTokens(Number(s.tokens_used)) : "—"}
-            </div>
-
-            {/* Status */}
-            <div className="flex justify-center">
-              <div
-                className={`w-2 h-2 rounded-full ${statusDot.dot}`}
-                title={statusDot.title}
-              />
-            </div>
-          </div>
-        );
-      })}
+          ))}
+        </div>
+      )}
     </div>
   );
 }
