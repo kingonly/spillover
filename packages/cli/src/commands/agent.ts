@@ -52,8 +52,12 @@ export async function agentCommand(_options: { daemon?: boolean }) {
       // Re-sync config from dashboard periodically
       await syncConfigFromApi(ghToken);
 
-      // Re-fetch repos from DB each cycle (picks up newly linked repos)
+      // Re-read config each cycle (picks up synced values)
       const currentProjectId = config.get("project_id") as string || projectId;
+      const currentUserId = config.get("user_id") as string || userId;
+      const currentHandle = config.get("github_handle") as string || githubHandle;
+
+      // Re-fetch repos from DB each cycle (picks up newly linked repos)
       const repos = await sql`
         SELECT repo_full_name FROM project_repos WHERE project_id = ${currentProjectId}
       `;
@@ -71,13 +75,13 @@ export async function agentCommand(_options: { daemon?: boolean }) {
       }
 
       // 1. Check legacy tasks (backward compat)
-      await checkLegacyTasks(sql, userId);
+      await checkLegacyTasks(sql, currentUserId);
 
       // 2. Check GitHub issues labeled "spillover"
-      await checkGitHubIssues(sql, currentProjectId, userId, githubHandle, repos);
+      await checkGitHubIssues(sql, currentProjectId, currentUserId, currentHandle, repos);
 
       // 3. Report usage
-      await reportUsage(sql, userId);
+      await reportUsage(sql, currentUserId);
     } catch (err: any) {
       console.error(chalk.dim(`  poll error: ${err.message}`));
     }
